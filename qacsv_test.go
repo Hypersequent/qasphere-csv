@@ -259,7 +259,7 @@ func TestWriteCSVMultipleTCasesSuccess(t *testing.T) {
 
 	b, err := io.ReadAll(f)
 	require.NoError(t, err)
-	require.Equal(t, strings.ReplaceAll(string(b), "[BACKTICK]", "`"), string(b))
+	require.Equal(t, strings.ReplaceAll(successTestCasesCSV, "[BACKTICK]", "`"), string(b))
 }
 
 func TestFailureTestCases(t *testing.T) {

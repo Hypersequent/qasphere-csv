@@ -10,6 +10,6 @@ lint: linters-install
 	golangci-lint run
 
 test:
-	$(GOCMD) test -cover -race ./...
+	$(GOCMD) test -v -cover -race ./...
 
 .PHONY: test lint linters-install
