@@ -2,7 +2,14 @@
 
 The `qasphere-csv` Go library simplifies the creation of CSV files for importing test cases into the [QA Sphere](https://qasphere.com/) Test Management System.
 
-## Features
+>**What is QA Sphere?**  
+>QA Sphere is a Test Management System designed to help teams organize their QA process without the clutter
+>of overly complex tools. It provides everything you need to manage test cases, schedule runs, and
+>keep track of your progress. With features like AI-powered test case creation and automation integrations,
+>QA Sphere focuses on making your QA workflows efficient and straightforward.
+
+
+## Library Features
 
 - Programmatically create large projects instead of manual entries.
 - Facilitate migration from older test management systems by converting exported data into QA Sphere's CSV format.
