@@ -18,8 +18,8 @@ import (
 )
 
 var staticColumns = []string{
-	"Folder", "Name", "Legacy ID", "Draft", "Priority", "Tags", "Requirements",
-	"Links", "Files", "Preconditions",
+	"Folder", "Type", "Name", "Legacy ID", "Draft", "Priority", "Tags", "Requirements",
+	"Links", "Files", "Preconditions", "Parameter Values", "Template Suffix Params",
 }
 
 // Priority represents the priority of a test case in QA Sphere.
@@ -30,6 +30,13 @@ const (
 	PriorityLow    Priority = "low"
 	PriorityMedium Priority = "medium"
 	PriorityHigh   Priority = "high"
+)
+
+type TestCaseType string
+
+const (
+	TestCaseTypeStandalone TestCaseType = "standalone"
+	TestCaseTypeTemplate   TestCaseType = "template"
 )
 
 // Requirement represent important requirements and reference document
@@ -47,15 +54,11 @@ type Link struct {
 
 // File represents an external file.
 type File struct {
-	// The name of the file. (required)
-	Name string `validate:"required" json:"file_name"`
-	// If the file is already uploaded on QA Sphere, then its ID. (optional)
-	ID string `validate:"required_without=URL" json:"id,omitempty"`
-	// The URL of the file. If the file is not uploaded on QA Sphere,
-	// the URL is required. (optional)
-	URL      string `validate:"required_without=ID,omitempty,http_url" json:"url,omitempty"`
-	MimeType string `json:"mime_type"`
-	Size     int64  `json:"size"`
+	Name     string `validate:"required" json:"fileName"`
+	ID       string `validate:"required" json:"id"`
+	URL      string `validate:"required" json:"url"`
+	MimeType string `validate:"required" json:"mimeType"`
+	Size     int64  `validate:"required" json:"size"`
 }
 
 // Step represents a single action to perform in a test case.
@@ -66,16 +69,41 @@ type Step struct {
 	Expected string
 }
 
+// ParameterValue represents a parameter value to be used for the test case
+type ParameterValue struct {
+	Priority *Priority         `json:"priority,omitempty" validate:"oneof=low medium high"`
+	Values   map[string]string `json:"values" validate:"required,dive,keys,max=255,endkeys"`
+}
+
+type CustomFieldType string
+
+const (
+	CustomFieldTypeText     CustomFieldType = "text"
+	CustomFieldTypeDropdown CustomFieldType = "dropdown"
+)
+
+type CustomField struct {
+	SystemName string          `validate:"required,max=64"`
+	Type       CustomFieldType `validate:"required,oneof=text dropdown"`
+}
+
+type CustomFieldValue struct {
+	Value     string `json:"value" validate:"max=255"`
+	IsDefault bool   `json:"isDefault" validate:"omitempty"`
+}
+
 // TestCase represents a test case in QA Sphere.
 type TestCase struct {
 	// The title of the test case. (required)
-	Title string `validate:"required,max=255"`
+	Title string `validate:"required,max=511"`
+	// The type of the test case. (optional)
+	Type TestCaseType `validate:"omitempty,oneof=standalone template"`
 	// In case of migrating from another test management system, the
 	// test case ID in the existing test management system. This is only
 	// for reference. (optional)
 	LegacyID string `validate:"max=255"`
 	// The complete folder path to the test case. (required)
-	Folder []string `validate:"min=1,dive,required,max=127,excludesall=/"`
+	Folder []string `validate:"min=1,dive,required,max=255,excludesall=/"`
 	// The priority of the test case. (required)
 	Priority Priority `validate:"required,oneof=low medium high"`
 	// The tags to assign to the test cases. This can be used to group,
@@ -99,6 +127,12 @@ type TestCase struct {
 	// final state. The test case should later be updated as and then
 	// published. (optional)
 	Draft bool
+	// The parameter values to be used for the test case. (optional)
+	ParameterValues []ParameterValue `validate:"dive"`
+	// The filled template suffix params to be used for the test case. (optional)
+	FilledTCaseTitleSuffixParams []string `validate:"dive,max=255"`
+	// The custom fields to be used for the test case. (optional)
+	CustomFields map[string]CustomFieldValue `validate:"dive,keys,max=64,endkeys,required"`
 }
 
 // QASphereCSV provides APIs to generate CSV that can be used to import
@@ -106,6 +140,7 @@ type TestCase struct {
 type QASphereCSV struct {
 	folderTCaseMap map[string][]TestCase
 	validate       *validator.Validate
+	customFields   []CustomField
 
 	numTCases int
 	maxSteps  int
@@ -118,7 +153,30 @@ func NewQASphereCSV() *QASphereCSV {
 	}
 }
 
+func (q *QASphereCSV) AddCustomField(cf CustomField) error {
+	if err := q.validate.Struct(cf); err != nil {
+		return errors.Wrap(err, "custom field validation")
+	}
+
+	q.customFields = append(q.customFields, cf)
+	return nil
+}
+
+func (q *QASphereCSV) AddCustomFields(cfs []CustomField) error {
+	var err error
+	for _, cf := range cfs {
+		if retErr := q.AddCustomField(cf); retErr != nil {
+			err = multierror.Append(err, retErr)
+		}
+	}
+	return err
+}
+
 func (q *QASphereCSV) AddTestCase(tc TestCase) error {
+	if tc.Type == TestCaseType("") {
+		tc.Type = TestCaseTypeStandalone
+	}
+
 	if err := q.validateTestCase(tc); err != nil {
 		return errors.Wrap(err, "test case validation")
 	}
@@ -130,6 +188,11 @@ func (q *QASphereCSV) AddTestCase(tc TestCase) error {
 func (q *QASphereCSV) AddTestCases(tcs []TestCase) error {
 	var err error
 	for i, tc := range tcs {
+		if tc.Type == TestCaseType("") {
+			tc.Type = TestCaseTypeStandalone
+			tcs[i].Type = TestCaseTypeStandalone
+		}
+
 		if retErr := q.validateTestCase(tc); retErr != nil {
 			err = multierror.Append(err, errors.Wrapf(retErr, "test case %d", i))
 		}
@@ -168,6 +231,21 @@ func (q *QASphereCSV) WriteCSVToFile(file string) error {
 }
 
 func (q *QASphereCSV) validateTestCase(tc TestCase) error {
+	if tc.CustomFields != nil {
+		for systemName := range tc.CustomFields {
+			var found bool
+			for _, cf := range q.customFields {
+				if cf.SystemName == systemName {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return errors.Errorf("custom field %s is not defined in QASphereCSV.customFields", systemName)
+			}
+		}
+	}
+
 	return q.validate.Struct(tc)
 }
 
@@ -192,11 +270,18 @@ func (q *QASphereCSV) getFolders() []string {
 
 func (q *QASphereCSV) getCSVRows() ([][]string, error) {
 	rows := make([][]string, 0, q.numTCases+1)
-	numCols := len(staticColumns) + 2*q.maxSteps
+	numCols := len(staticColumns) + 2*q.maxSteps + len(q.customFields)
 
 	rows = append(rows, append(make([]string, 0, numCols), staticColumns...))
 	for i := 0; i < q.maxSteps; i++ {
 		rows[0] = append(rows[0], fmt.Sprintf("Step %d", i+1), fmt.Sprintf("Expected %d", i+1))
+	}
+
+	customFieldsMap := make(map[string]int)
+	for i, cf := range q.customFields {
+		customFieldHeader := fmt.Sprintf("custom_field_%s_%s", cf.Type, cf.SystemName)
+		rows[0] = append(rows[0], customFieldHeader)
+		customFieldsMap[cf.SystemName] = i
 	}
 
 	folders := q.getFolders()
@@ -221,10 +306,20 @@ func (q *QASphereCSV) getCSVRows() ([][]string, error) {
 				files = string(filesb)
 			}
 
+			var parameterValues string
+			if len(tc.ParameterValues) > 0 {
+				parameterValuesb, err := json.Marshal(tc.ParameterValues)
+				if err != nil {
+					return nil, errors.Wrap(err, "json marshal parameter values")
+				}
+				parameterValues = string(parameterValuesb)
+			}
+
 			row := make([]string, 0, numCols)
-			row = append(row, f, tc.Title, tc.LegacyID, strconv.FormatBool(tc.Draft),
+			row = append(row, f, string(tc.Type), tc.Title, tc.LegacyID, strconv.FormatBool(tc.Draft),
 				string(tc.Priority), strings.Join(tc.Tags, ","), requirement,
-				strings.Join(links, ","), files, tc.Preconditions)
+				strings.Join(links, ","), files, tc.Preconditions, parameterValues,
+				strings.Join(tc.FilledTCaseTitleSuffixParams, ","))
 
 			numSteps := len(tc.Steps)
 			for i := 0; i < q.maxSteps; i++ {
@@ -234,6 +329,17 @@ func (q *QASphereCSV) getCSVRows() ([][]string, error) {
 					row = append(row, "", "")
 				}
 			}
+
+			customFieldCols := make([]string, len(customFieldsMap))
+			for systemName, cfValue := range tc.CustomFields {
+				cfValueJSON, err := json.Marshal(cfValue)
+				if err != nil {
+					return nil, errors.Wrap(err, "json marshal custom field value")
+				}
+
+				customFieldCols[customFieldsMap[systemName]] = string(cfValueJSON)
+			}
+			row = append(row, customFieldCols...)
 
 			rows = append(rows, row)
 		}
