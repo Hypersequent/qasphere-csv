@@ -17,9 +17,11 @@ import (
 	"github.com/pkg/errors"
 )
 
+// staticColumns will always be present in the CSV file
+// but there can be additional columns for steps and custom fields.
 var staticColumns = []string{
-	"Folder", "Name", "Legacy ID", "Draft", "Priority", "Tags", "Requirements",
-	"Links", "Files", "Preconditions",
+	"Folder", "Type", "Name", "Legacy ID", "Draft", "Priority", "Tags", "Requirements",
+	"Links", "Files", "Preconditions", "Parameter Values", "Template Suffix Params",
 }
 
 // Priority represents the priority of a test case in QA Sphere.
@@ -30,6 +32,13 @@ const (
 	PriorityLow    Priority = "low"
 	PriorityMedium Priority = "medium"
 	PriorityHigh   Priority = "high"
+)
+
+type TestCaseType string
+
+const (
+	TestCaseTypeStandalone TestCaseType = "standalone"
+	TestCaseTypeTemplate   TestCaseType = "template"
 )
 
 // Requirement represent important requirements and reference document
@@ -45,17 +54,17 @@ type Link struct {
 	URL   string `validate:"required,http_url,max=255"`
 }
 
-// File represents an external file.
+// File represents an attachment or file associated with a test case.
+// These files need to be uploaded to the QA Sphere project via the API
+// See API documentation for more details.
+//
+// https://docs.qasphere.com/api/upload_file
 type File struct {
-	// The name of the file. (required)
-	Name string `validate:"required" json:"file_name"`
-	// If the file is already uploaded on QA Sphere, then its ID. (optional)
-	ID string `validate:"required_without=URL" json:"id,omitempty"`
-	// The URL of the file. If the file is not uploaded on QA Sphere,
-	// the URL is required. (optional)
-	URL      string `validate:"required_without=ID,omitempty,http_url" json:"url,omitempty"`
-	MimeType string `json:"mime_type"`
-	Size     int64  `json:"size"`
+	Name     string `validate:"required" json:"fileName"`
+	ID       string `validate:"required" json:"id"`
+	URL      string `validate:"required" json:"url"`
+	MimeType string `validate:"required" json:"mimeType"`
+	Size     int64  `validate:"required" json:"size"`
 }
 
 // Step represents a single action to perform in a test case.
@@ -66,16 +75,45 @@ type Step struct {
 	Expected string
 }
 
+// ParameterValue represents parameter values that you provide for template test cases.
+// Template test cases are test cases where the body of the test case can contain some placeholders
+// of the form ${parameter_name}. Then the users need to provide the values for these parameters
+// in the form of a map. These are used to generate a filled test case which replaced the placeholders.
+type ParameterValue struct {
+	Priority *Priority         `json:"priority,omitempty" validate:"oneof=low medium high"`
+	Values   map[string]string `json:"values" validate:"required,dive,keys,max=255,endkeys"`
+}
+
+type CustomFieldType string
+
+const (
+	CustomFieldTypeText     CustomFieldType = "text"
+	CustomFieldTypeDropdown CustomFieldType = "dropdown"
+)
+
+type CustomField struct {
+	SystemName string          `validate:"required,max=64"`
+	Type       CustomFieldType `validate:"required,oneof=text dropdown"`
+}
+
+type CustomFieldValue struct {
+	Value     string `json:"value" validate:"max=255"`
+	IsDefault bool   `json:"isDefault" validate:"omitempty"`
+}
+
 // TestCase represents a test case in QA Sphere.
 type TestCase struct {
 	// The title of the test case. (required)
-	Title string `validate:"required,max=255"`
+	Title string `validate:"required,max=511"`
+	// The type of the test case. (optional)
+	// If not specified, it defaults to "standalone".
+	Type TestCaseType `validate:"omitempty,oneof=standalone template"`
 	// In case of migrating from another test management system, the
 	// test case ID in the existing test management system. This is only
 	// for reference. (optional)
 	LegacyID string `validate:"max=255"`
 	// The complete folder path to the test case. (required)
-	Folder []string `validate:"min=1,dive,required,max=127,excludesall=/"`
+	Folder []string `validate:"min=1,dive,required,max=255,excludesall=/"`
 	// The priority of the test case. (required)
 	Priority Priority `validate:"required,oneof=low medium high"`
 	// The tags to assign to the test cases. This can be used to group,
@@ -90,7 +128,7 @@ type TestCase struct {
 	Steps []Step
 	// Primary requirement or reference document associated with the
 	// test case. (optional)
-	Requirement *Requirement
+	Requirements []Requirement `validate:"dive"`
 	// Any other files relevant to the test case. (optional)
 	Files []File `validate:"dive"`
 	// Any other links relevant to the test case. (optional)
@@ -99,6 +137,19 @@ type TestCase struct {
 	// final state. The test case should later be updated as and then
 	// published. (optional)
 	Draft bool
+	// The parameter values to be used for the test case. (optional)
+	// This is used for template test cases where the body of the test case
+	// can contain some placeholders of the form ${parameter_name}.
+	// For each ParameterValue provided in this array, we generate a distinct filled test case
+	// See ParameterValue for more details.
+	ParameterValues []ParameterValue `validate:"dive"`
+	// The filled template suffix params to be used for template test cases.
+	// For easy identification, we add a suffix to the filled test case title
+	// For example, for a template with title "Template_title" and you provide SuffixParams as param1, param2
+	// The generated filled test case will have title "Template_title (param1=val1, param2=val2)".
+	FilledTCaseTitleSuffixParams []string `validate:"dive,max=255"`
+	// The custom fields to be used for the test case. (optional)
+	CustomFields map[string]CustomFieldValue `validate:"dive,keys,max=64,endkeys,required"`
 }
 
 // QASphereCSV provides APIs to generate CSV that can be used to import
@@ -106,6 +157,7 @@ type TestCase struct {
 type QASphereCSV struct {
 	folderTCaseMap map[string][]TestCase
 	validate       *validator.Validate
+	customFields   []CustomField
 
 	numTCases int
 	maxSteps  int
@@ -118,7 +170,40 @@ func NewQASphereCSV() *QASphereCSV {
 	}
 }
 
+// AddCustomField adds a custom field to the QASphereCSV.
+// The custom fields need to pre-declared by using AddCustomField or AddCustomFields
+func (q *QASphereCSV) AddCustomField(cf CustomField) error {
+	if err := q.validate.Struct(cf); err != nil {
+		return errors.Wrap(err, "custom field validation")
+	}
+
+	// Check for duplicate custom field SystemName
+	for _, existingCF := range q.customFields {
+		if existingCF.SystemName == cf.SystemName {
+			return errors.Errorf("custom field with SystemName %q already exists", cf.SystemName)
+		}
+	}
+
+	q.customFields = append(q.customFields, cf)
+	return nil
+}
+
+// AddCustomFields adds multiple custom fields to the QASphereCSV.
+func (q *QASphereCSV) AddCustomFields(cfs []CustomField) error {
+	var err error
+	for _, cf := range cfs {
+		if retErr := q.AddCustomField(cf); retErr != nil {
+			err = multierror.Append(err, retErr)
+		}
+	}
+	return err
+}
+
 func (q *QASphereCSV) AddTestCase(tc TestCase) error {
+	if tc.Type == TestCaseType("") {
+		tc.Type = TestCaseTypeStandalone
+	}
+
 	if err := q.validateTestCase(tc); err != nil {
 		return errors.Wrap(err, "test case validation")
 	}
@@ -130,6 +215,11 @@ func (q *QASphereCSV) AddTestCase(tc TestCase) error {
 func (q *QASphereCSV) AddTestCases(tcs []TestCase) error {
 	var err error
 	for i, tc := range tcs {
+		if tc.Type == TestCaseType("") {
+			tc.Type = TestCaseTypeStandalone
+			tcs[i].Type = TestCaseTypeStandalone
+		}
+
 		if retErr := q.validateTestCase(tc); retErr != nil {
 			err = multierror.Append(err, errors.Wrapf(retErr, "test case %d", i))
 		}
@@ -168,6 +258,21 @@ func (q *QASphereCSV) WriteCSVToFile(file string) error {
 }
 
 func (q *QASphereCSV) validateTestCase(tc TestCase) error {
+	if tc.CustomFields != nil {
+		for systemName := range tc.CustomFields {
+			var found bool
+			for _, cf := range q.customFields {
+				if cf.SystemName == systemName {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return errors.Errorf("custom field %s is not defined in QASphereCSV.customFields", systemName)
+			}
+		}
+	}
+
 	return q.validate.Struct(tc)
 }
 
@@ -192,19 +297,30 @@ func (q *QASphereCSV) getFolders() []string {
 
 func (q *QASphereCSV) getCSVRows() ([][]string, error) {
 	rows := make([][]string, 0, q.numTCases+1)
-	numCols := len(staticColumns) + 2*q.maxSteps
+	numCols := len(staticColumns) + 2*q.maxSteps + len(q.customFields)
 
 	rows = append(rows, append(make([]string, 0, numCols), staticColumns...))
 	for i := 0; i < q.maxSteps; i++ {
 		rows[0] = append(rows[0], fmt.Sprintf("Step %d", i+1), fmt.Sprintf("Expected %d", i+1))
 	}
 
+	customFieldsMap := make(map[string]int)
+	for i, cf := range q.customFields {
+		customFieldHeader := fmt.Sprintf("custom_field_%s_%s", cf.Type, cf.SystemName)
+		rows[0] = append(rows[0], customFieldHeader)
+		customFieldsMap[cf.SystemName] = i
+	}
+
 	folders := q.getFolders()
 	for _, f := range folders {
 		for _, tc := range q.folderTCaseMap[f] {
-			var requirement string
-			if tc.Requirement != nil {
-				requirement = fmt.Sprintf("[%s](%s)", tc.Requirement.Title, tc.Requirement.URL)
+			var requirements []string
+			for _, req := range tc.Requirements {
+				if req.Title == "" && req.URL == "" {
+					continue
+				}
+
+				requirements = append(requirements, fmt.Sprintf("[%s](%s)", req.Title, req.URL))
 			}
 
 			var links []string
@@ -221,10 +337,20 @@ func (q *QASphereCSV) getCSVRows() ([][]string, error) {
 				files = string(filesb)
 			}
 
+			var parameterValues string
+			if len(tc.ParameterValues) > 0 {
+				parameterValuesb, err := json.Marshal(tc.ParameterValues)
+				if err != nil {
+					return nil, errors.Wrap(err, "json marshal parameter values")
+				}
+				parameterValues = string(parameterValuesb)
+			}
+
 			row := make([]string, 0, numCols)
-			row = append(row, f, tc.Title, tc.LegacyID, strconv.FormatBool(tc.Draft),
-				string(tc.Priority), strings.Join(tc.Tags, ","), requirement,
-				strings.Join(links, ","), files, tc.Preconditions)
+			row = append(row, f, string(tc.Type), tc.Title, tc.LegacyID, strconv.FormatBool(tc.Draft),
+				string(tc.Priority), strings.Join(tc.Tags, ","), strings.Join(requirements, ","),
+				strings.Join(links, ","), files, tc.Preconditions, parameterValues,
+				strings.Join(tc.FilledTCaseTitleSuffixParams, ","))
 
 			numSteps := len(tc.Steps)
 			for i := 0; i < q.maxSteps; i++ {
@@ -234,6 +360,17 @@ func (q *QASphereCSV) getCSVRows() ([][]string, error) {
 					row = append(row, "", "")
 				}
 			}
+
+			customFieldCols := make([]string, len(customFieldsMap))
+			for systemName, cfValue := range tc.CustomFields {
+				cfValueJSON, err := json.Marshal(cfValue)
+				if err != nil {
+					return nil, errors.Wrap(err, "json marshal custom field value")
+				}
+
+				customFieldCols[customFieldsMap[systemName]] = string(cfValueJSON)
+			}
+			row = append(row, customFieldCols...)
 
 			rows = append(rows, row)
 		}

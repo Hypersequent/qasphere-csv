@@ -27,9 +27,10 @@ var successTestCases = []TestCase{
 				Expected: "expected-2",
 			},
 		},
-		Requirement: &Requirement{Title: "req1", URL: "http://req1"},
+		Requirements: []Requirement{{Title: "req1", URL: "http://req1"}},
 		Files: []File{
 			{
+				ID:       "file-id",
 				Name:     "file-1.csv",
 				MimeType: "text/csv",
 				Size:     10,
@@ -37,6 +38,7 @@ var successTestCases = []TestCase{
 			}, {
 				Name:     "file-1.csv",
 				ID:       "file-id",
+				URL:      "http://file1",
 				MimeType: "text/csv",
 				Size:     10,
 			},
@@ -70,9 +72,10 @@ var successTestCases = []TestCase{
 				Expected: "expected.,<>/@$%\"\"''*&()[]{}+-`!~;",
 			},
 		},
-		Requirement: &Requirement{Title: "req.,<>/@$%\"\"''*&()[]{}+-`!~;"},
+		Requirements: []Requirement{{Title: "req.,<>/@$%\"\"''*&()[]{}+-`!~;"}},
 		Files: []File{
 			{
+				ID:       "file-id",
 				Name:     "file-1.csv",
 				MimeType: "text/csv",
 				Size:     10,
@@ -101,9 +104,10 @@ var successTestCases = []TestCase{
 				Expected: "expected-2",
 			},
 		},
-		Requirement: &Requirement{URL: "http://req1"},
+		Requirements: []Requirement{{URL: "http://req1"}},
 		Files: []File{
 			{
+				ID:       "file-id",
 				Name:     "file-1.csv",
 				MimeType: "text/csv",
 				Size:     10,
@@ -111,6 +115,7 @@ var successTestCases = []TestCase{
 			}, {
 				Name:     "file-1.csv",
 				ID:       "file-id",
+				URL:      "http://file1",
 				MimeType: "text/csv",
 				Size:     10,
 			},
@@ -120,11 +125,11 @@ var successTestCases = []TestCase{
 	},
 }
 
-const successTestCasesCSV = `Folder,Name,Legacy ID,Draft,Priority,Tags,Requirements,Links,Files,Preconditions,Step 1,Expected 1,Step 2,Expected 2
-root,tc-with-minimal-fields,,false,high,,,,,,,,,
-root,tc-with-partial-fields,,true,low,,[](http://req1),,"[{""file_name"":""file-1.csv"",""url"":""http://file1"",""mime_type"":""text/csv"",""size"":10},{""file_name"":""file-1.csv"",""id"":""file-id"",""mime_type"":""text/csv"",""size"":10}]",,action-1,,,expected-2
-root/child,tc-with-all-fields,legacy-id,false,high,"tag1,tag2",[req1](http://req1),"[link-1](http://link1),[link-2](http://link2)","[{""file_name"":""file-1.csv"",""url"":""http://file1"",""mime_type"":""text/csv"",""size"":10},{""file_name"":""file-1.csv"",""id"":""file-id"",""mime_type"":""text/csv"",""size"":10}]",preconditions,action-1,expected-1,action-2,expected-2
-root/child,"tc-with-special-chars.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;",legacy-id,false,high,"tag1.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;","[req.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;]()","[link-1.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;](http://link1)","[{""file_name"":""file-1.csv"",""url"":""http://file1"",""mime_type"":""text/csv"",""size"":10}]","preconditions.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;","action.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;","expected.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;",,
+const successTestCasesCSV = `Folder,Type,Name,Legacy ID,Draft,Priority,Tags,Requirements,Links,Files,Preconditions,Parameter Values,Template Suffix Params,Step 1,Expected 1,Step 2,Expected 2
+root,standalone,tc-with-minimal-fields,,false,high,,,,,,,,,,,
+root,standalone,tc-with-partial-fields,,true,low,,[](http://req1),,"[{""fileName"":""file-1.csv"",""id"":""file-id"",""url"":""http://file1"",""mimeType"":""text/csv"",""size"":10},{""fileName"":""file-1.csv"",""id"":""file-id"",""url"":""http://file1"",""mimeType"":""text/csv"",""size"":10}]",,,,action-1,,,expected-2
+root/child,standalone,tc-with-all-fields,legacy-id,false,high,"tag1,tag2",[req1](http://req1),"[link-1](http://link1),[link-2](http://link2)","[{""fileName"":""file-1.csv"",""id"":""file-id"",""url"":""http://file1"",""mimeType"":""text/csv"",""size"":10},{""fileName"":""file-1.csv"",""id"":""file-id"",""url"":""http://file1"",""mimeType"":""text/csv"",""size"":10}]",preconditions,,,action-1,expected-1,action-2,expected-2
+root/child,standalone,"tc-with-special-chars.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;",legacy-id,false,high,"tag1.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;","[req.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;]()","[link-1.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;](http://link1)","[{""fileName"":""file-1.csv"",""id"":""file-id"",""url"":""http://file1"",""mimeType"":""text/csv"",""size"":10}]","preconditions.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;",,,"action.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;","expected.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;",,
 `
 
 var failureTestCases = []TestCase{
@@ -133,7 +138,7 @@ var failureTestCases = []TestCase{
 		Folder:   []string{"root"},
 		Priority: "high",
 	}, {
-		Title:    "very-long-title-very-long-title-very-long-title-very-long-title-very-long-title-very-long-title-very-long-title-very-long-title-very-long-title-very-long-title-very-long-title-very-long-title-very-long-title-very-long-title-very-long-title-very-long-title-",
+		Title:    strings.Repeat("a", 512), // Exceeds 511 char limit
 		Folder:   []string{"root"},
 		Priority: "high",
 	}, {
@@ -161,17 +166,17 @@ var failureTestCases = []TestCase{
 		Title:    "long tag",
 		Folder:   []string{"root"},
 		Priority: "high",
-		Tags:     []string{"very-long-tag-very-long-tag-very-long-tag-very-long-tag-very-long-tag-very-long-tag-very-long-tag-very-long-tag-very-long-tag-very-long-tag-very-long-tag-very-long-tag-very-long-tag-very-long-tag-very-long-tag-very-long-tag-very-long-tag-very-long-tag-very"},
+		Tags:     []string{strings.Repeat("a", 256)}, // Exceeds 255 char limit
 	}, {
-		Title:       "requirement without title and url",
-		Folder:      []string{"root"},
-		Priority:    "high",
-		Requirement: &Requirement{},
+		Title:        "requirement without title and url",
+		Folder:       []string{"root"},
+		Priority:     "high",
+		Requirements: []Requirement{{}},
 	}, {
-		Title:       "requirement with invalid url",
-		Folder:      []string{"root"},
-		Priority:    "high",
-		Requirement: &Requirement{URL: "ftp://req1"},
+		Title:        "requirement with invalid url",
+		Folder:       []string{"root"},
+		Priority:     "high",
+		Requirements: []Requirement{{URL: "ftp://req1"}},
 	}, {
 		Title:    "link without title and url",
 		Folder:   []string{"root"},
@@ -229,8 +234,159 @@ var failureTestCases = []TestCase{
 	},
 }
 
+// Custom field test data
+var customFields = []CustomField{
+	{
+		SystemName: "test_env",
+		Type:       CustomFieldTypeDropdown,
+	},
+	{
+		SystemName: "automation",
+		Type:       CustomFieldTypeDropdown,
+	},
+	{
+		SystemName: "notes",
+		Type:       CustomFieldTypeText,
+	},
+}
+
+var customFieldSuccessTestCases = []TestCase{
+	{
+		Title:    "tc-with-single-custom-field",
+		Folder:   []string{"custom-fields"},
+		Priority: "medium",
+		CustomFields: map[string]CustomFieldValue{
+			"test_env": {
+				Value:     "staging",
+				IsDefault: false,
+			},
+		},
+	},
+	{
+		Title:    "tc-with-multiple-custom-fields",
+		Folder:   []string{"custom-fields"},
+		Priority: "high",
+		Tags:     []string{"regression", "smoke"},
+		CustomFields: map[string]CustomFieldValue{
+			"test_env": {
+				Value:     "production",
+				IsDefault: false,
+			},
+			"automation": {
+				Value:     "Automated",
+				IsDefault: false,
+			},
+			"notes": {
+				Value:     "This is a test note with special chars: !@#$%^&*()",
+				IsDefault: false,
+			},
+		},
+		Steps: []Step{
+			{
+				Action:   "Execute test",
+				Expected: "Test passes",
+			},
+		},
+	},
+	{
+		Title:    "tc-with-empty-custom-field-value",
+		Folder:   []string{"custom-fields"},
+		Priority: "low",
+		CustomFields: map[string]CustomFieldValue{
+			"notes": {
+				Value:     "",
+				IsDefault: false,
+			},
+		},
+	},
+	{
+		Title:    "tc-with-default-custom-field",
+		Folder:   []string{"custom-fields"},
+		Priority: "medium",
+		CustomFields: map[string]CustomFieldValue{
+			"automation": {
+				Value:     "",
+				IsDefault: false,
+			},
+		},
+	},
+	{
+		Title:         "tc-with-all-fields-and-custom-fields",
+		LegacyID:      "CF-001",
+		Folder:        []string{"custom-fields", "comprehensive"},
+		Priority:      "high",
+		Tags:          []string{"custom", "comprehensive"},
+		Preconditions: "Custom field test setup",
+		Steps: []Step{
+			{
+				Action:   "Step 1",
+				Expected: "Result 1",
+			},
+		},
+		Requirements: []Requirement{{Title: "CF Requirements", URL: "http://cf-req"}},
+		Files: []File{
+			{
+				ID:       "cf-file-id",
+				Name:     "cf-test.txt",
+				MimeType: "text/plain",
+				Size:     100,
+				URL:      "http://cf-file",
+			},
+		},
+		Links: []Link{
+			{
+				Title: "CF Link",
+				URL:   "http://cf-link",
+			},
+		},
+		Draft: false,
+		CustomFields: map[string]CustomFieldValue{
+			"test_env": {
+				Value:     "development",
+				IsDefault: false,
+			},
+			"automation": {
+				Value:     "In Progress",
+				IsDefault: false,
+			},
+		},
+	},
+}
+
+const customFieldSuccessTestCasesCSV = `Folder,Type,Name,Legacy ID,Draft,Priority,Tags,Requirements,Links,Files,Preconditions,Parameter Values,Template Suffix Params,Step 1,Expected 1,custom_field_dropdown_test_env,custom_field_dropdown_automation,custom_field_text_notes
+custom-fields,standalone,tc-with-single-custom-field,,false,medium,,,,,,,,,,"{""value"":""staging"",""isDefault"":false}",,
+custom-fields,standalone,tc-with-multiple-custom-fields,,false,high,"regression,smoke",,,,,,,Execute test,Test passes,"{""value"":""production"",""isDefault"":false}","{""value"":""Automated"",""isDefault"":false}","{""value"":""This is a test note with special chars: !@#$%^\u0026*()"",""isDefault"":false}"
+custom-fields,standalone,tc-with-empty-custom-field-value,,false,low,,,,,,,,,,,,"{""value"":"""",""isDefault"":false}"
+custom-fields,standalone,tc-with-default-custom-field,,false,medium,,,,,,,,,,,"{""value"":"""",""isDefault"":false}",
+custom-fields/comprehensive,standalone,tc-with-all-fields-and-custom-fields,CF-001,false,high,"custom,comprehensive",[CF Requirements](http://cf-req),[CF Link](http://cf-link),"[{""fileName"":""cf-test.txt"",""id"":""cf-file-id"",""url"":""http://cf-file"",""mimeType"":""text/plain"",""size"":100}]",Custom field test setup,,,Step 1,Result 1,"{""value"":""development"",""isDefault"":false}","{""value"":""In Progress"",""isDefault"":false}",
+`
+
+var customFieldFailureTestCases = []TestCase{
+	{
+		Title:    "tc-with-undefined-custom-field",
+		Folder:   []string{"custom-fields-errors"},
+		Priority: "high",
+		CustomFields: map[string]CustomFieldValue{
+			"undefined_field": {
+				Value: "some value",
+			},
+		},
+	},
+	{
+		Title:    "tc-with-very-long-custom-field-value",
+		Folder:   []string{"custom-fields-errors"},
+		Priority: "medium",
+		CustomFields: map[string]CustomFieldValue{
+			"notes": {
+				Value: strings.Repeat("a", 256), // Exceeds 255 char limit
+			},
+		},
+	},
+}
+
 func TestGenerateCSVSuccess(t *testing.T) {
 	qasCSV := NewQASphereCSV()
+
 	for _, tc := range successTestCases {
 		err := qasCSV.AddTestCase(tc)
 		require.NoError(t, err)
@@ -266,6 +422,35 @@ func TestFailureTestCases(t *testing.T) {
 	for _, tc := range failureTestCases {
 		t.Run(tc.Title, func(t *testing.T) {
 			qasCSV := NewQASphereCSV()
+			err := qasCSV.AddTestCase(tc)
+			require.NotNil(t, err)
+		})
+	}
+}
+
+func TestCustomFieldSuccessTestCases(t *testing.T) {
+	qasCSV := NewQASphereCSV()
+	if err := qasCSV.AddCustomFields(customFields); err != nil {
+		t.Fatalf("Failed to add custom fields: %v", err)
+	}
+
+	for _, tc := range customFieldSuccessTestCases {
+		err := qasCSV.AddTestCase(tc)
+		require.NoError(t, err)
+	}
+	actualCSV, err := qasCSV.GenerateCSV()
+	require.NoError(t, err)
+	require.Equal(t, customFieldSuccessTestCasesCSV, actualCSV)
+}
+
+func TestCustomFieldFailureTestCases(t *testing.T) {
+	qasCSV := NewQASphereCSV()
+	if err := qasCSV.AddCustomFields(customFields); err != nil {
+		t.Fatalf("Failed to add custom fields: %v", err)
+	}
+
+	for _, tc := range customFieldFailureTestCases {
+		t.Run(tc.Title, func(t *testing.T) {
 			err := qasCSV.AddTestCase(tc)
 			require.NotNil(t, err)
 		})
