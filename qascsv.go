@@ -198,6 +198,7 @@ func (q *QASphereCSV) AddCustomFields(cfs []CustomField) error {
 	}
 	return err
 }
+
 func (q *QASphereCSV) AddTestCase(tc TestCase) error {
 	if tc.Type == TestCaseType("") {
 		tc.Type = TestCaseTypeStandalone
