@@ -17,6 +17,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+// staticColumns will always be present in the CSV file
+// but there can be additional columns for steps and custom fields.
 var staticColumns = []string{
 	"Folder", "Type", "Name", "Legacy ID", "Draft", "Priority", "Tags", "Requirements",
 	"Links", "Files", "Preconditions", "Parameter Values", "Template Suffix Params",
@@ -52,7 +54,11 @@ type Link struct {
 	URL   string `validate:"required,http_url,max=255"`
 }
 
-// File represents an external file.
+// File represents an attachment or file associated with a test case.
+// These files need to be uploaded to the QA Sphere project via the API
+// See API documentation for more details.
+//
+// https://docs.qasphere.com/api/upload_file
 type File struct {
 	Name     string `validate:"required" json:"fileName"`
 	ID       string `validate:"required" json:"id"`
@@ -69,7 +75,10 @@ type Step struct {
 	Expected string
 }
 
-// ParameterValue represents a parameter value to be used for the test case
+// ParameterValue represents parameter values that you provide for template test cases.
+// Template test cases are test cases where the body of the test case can contain some placeholders
+// of the form ${parameter_name}. Then the users need to provide the values for these parameters
+// in the form of a map. These are used to generate a filled test case which replaced the placeholders.
 type ParameterValue struct {
 	Priority *Priority         `json:"priority,omitempty" validate:"oneof=low medium high"`
 	Values   map[string]string `json:"values" validate:"required,dive,keys,max=255,endkeys"`
@@ -97,6 +106,7 @@ type TestCase struct {
 	// The title of the test case. (required)
 	Title string `validate:"required,max=511"`
 	// The type of the test case. (optional)
+	// If not specified, it defaults to "standalone".
 	Type TestCaseType `validate:"omitempty,oneof=standalone template"`
 	// In case of migrating from another test management system, the
 	// test case ID in the existing test management system. This is only
@@ -128,8 +138,15 @@ type TestCase struct {
 	// published. (optional)
 	Draft bool
 	// The parameter values to be used for the test case. (optional)
+	// This is used for template test cases where the body of the test case
+	// can contain some placeholders of the form ${parameter_name}.
+	// For each ParameterValue provided in this array, we generate a distinct filled test case
+	// See ParameterValue for more details.
 	ParameterValues []ParameterValue `validate:"dive"`
-	// The filled template suffix params to be used for the test case. (optional)
+	// The filled template suffix params to be used for template test cases.
+	// For easy identification, we add a suffix to the filled test case title
+	// For example, for a template with title "Template_title" and you provide SuffixParams as param1, param2
+	// The generated filled test case will have title "Template_title (param1=val1, param2=val2)".
 	FilledTCaseTitleSuffixParams []string `validate:"dive,max=255"`
 	// The custom fields to be used for the test case. (optional)
 	CustomFields map[string]CustomFieldValue `validate:"dive,keys,max=64,endkeys,required"`
@@ -153,6 +170,8 @@ func NewQASphereCSV() *QASphereCSV {
 	}
 }
 
+// AddCustomField adds a custom field to the QASphereCSV.
+// The custom fields need to pre-declared by using AddCustomField or AddCustomFields
 func (q *QASphereCSV) AddCustomField(cf CustomField) error {
 	if err := q.validate.Struct(cf); err != nil {
 		return errors.Wrap(err, "custom field validation")
@@ -169,6 +188,7 @@ func (q *QASphereCSV) AddCustomField(cf CustomField) error {
 	return nil
 }
 
+// AddCustomFields adds multiple custom fields to the QASphereCSV.
 func (q *QASphereCSV) AddCustomFields(cfs []CustomField) error {
 	var err error
 	for _, cf := range cfs {
@@ -178,7 +198,6 @@ func (q *QASphereCSV) AddCustomFields(cfs []CustomField) error {
 	}
 	return err
 }
-
 func (q *QASphereCSV) AddTestCase(tc TestCase) error {
 	if tc.Type == TestCaseType("") {
 		tc.Type = TestCaseTypeStandalone
