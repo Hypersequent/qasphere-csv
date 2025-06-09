@@ -386,6 +386,7 @@ var customFieldFailureTestCases = []TestCase{
 
 func TestGenerateCSVSuccess(t *testing.T) {
 	qasCSV := NewQASphereCSV()
+
 	for _, tc := range successTestCases {
 		err := qasCSV.AddTestCase(tc)
 		require.NoError(t, err)
@@ -450,7 +451,6 @@ func TestCustomFieldFailureTestCases(t *testing.T) {
 
 	for _, tc := range customFieldFailureTestCases {
 		t.Run(tc.Title, func(t *testing.T) {
-			qasCSV := NewQASphereCSV()
 			err := qasCSV.AddTestCase(tc)
 			require.NotNil(t, err)
 		})
