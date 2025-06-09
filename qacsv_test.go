@@ -27,7 +27,7 @@ var successTestCases = []TestCase{
 				Expected: "expected-2",
 			},
 		},
-		Requirement: &Requirement{Title: "req1", URL: "http://req1"},
+		Requirements: []Requirement{{Title: "req1", URL: "http://req1"}},
 		Files: []File{
 			{
 				ID:       "file-id",
@@ -72,7 +72,7 @@ var successTestCases = []TestCase{
 				Expected: "expected.,<>/@$%\"\"''*&()[]{}+-`!~;",
 			},
 		},
-		Requirement: &Requirement{Title: "req.,<>/@$%\"\"''*&()[]{}+-`!~;"},
+		Requirements: []Requirement{{Title: "req.,<>/@$%\"\"''*&()[]{}+-`!~;"}},
 		Files: []File{
 			{
 				ID:       "file-id",
@@ -104,7 +104,7 @@ var successTestCases = []TestCase{
 				Expected: "expected-2",
 			},
 		},
-		Requirement: &Requirement{URL: "http://req1"},
+		Requirements: []Requirement{{URL: "http://req1"}},
 		Files: []File{
 			{
 				ID:       "file-id",
@@ -168,15 +168,15 @@ var failureTestCases = []TestCase{
 		Priority: "high",
 		Tags:     []string{strings.Repeat("a", 256)}, // Exceeds 255 char limit
 	}, {
-		Title:       "requirement without title and url",
-		Folder:      []string{"root"},
-		Priority:    "high",
-		Requirement: &Requirement{},
+		Title:        "requirement without title and url",
+		Folder:       []string{"root"},
+		Priority:     "high",
+		Requirements: []Requirement{{}},
 	}, {
-		Title:       "requirement with invalid url",
-		Folder:      []string{"root"},
-		Priority:    "high",
-		Requirement: &Requirement{URL: "ftp://req1"},
+		Title:        "requirement with invalid url",
+		Folder:       []string{"root"},
+		Priority:     "high",
+		Requirements: []Requirement{{URL: "ftp://req1"}},
 	}, {
 		Title:    "link without title and url",
 		Folder:   []string{"root"},
@@ -323,7 +323,7 @@ var customFieldSuccessTestCases = []TestCase{
 				Expected: "Result 1",
 			},
 		},
-		Requirement: &Requirement{Title: "CF Requirements", URL: "http://cf-req"},
+		Requirements: []Requirement{{Title: "CF Requirements", URL: "http://cf-req"}},
 		Files: []File{
 			{
 				ID:       "cf-file-id",

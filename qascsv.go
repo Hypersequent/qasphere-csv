@@ -118,7 +118,7 @@ type TestCase struct {
 	Steps []Step
 	// Primary requirement or reference document associated with the
 	// test case. (optional)
-	Requirement *Requirement
+	Requirements []Requirement `validate:"dive"`
 	// Any other files relevant to the test case. (optional)
 	Files []File `validate:"dive"`
 	// Any other links relevant to the test case. (optional)
@@ -156,6 +156,13 @@ func NewQASphereCSV() *QASphereCSV {
 func (q *QASphereCSV) AddCustomField(cf CustomField) error {
 	if err := q.validate.Struct(cf); err != nil {
 		return errors.Wrap(err, "custom field validation")
+	}
+
+	// Check for duplicate custom field SystemName
+	for _, existingCF := range q.customFields {
+		if existingCF.SystemName == cf.SystemName {
+			return errors.Errorf("custom field with SystemName %q already exists", cf.SystemName)
+		}
 	}
 
 	q.customFields = append(q.customFields, cf)
@@ -287,9 +294,13 @@ func (q *QASphereCSV) getCSVRows() ([][]string, error) {
 	folders := q.getFolders()
 	for _, f := range folders {
 		for _, tc := range q.folderTCaseMap[f] {
-			var requirement string
-			if tc.Requirement != nil {
-				requirement = fmt.Sprintf("[%s](%s)", tc.Requirement.Title, tc.Requirement.URL)
+			var requirements []string
+			for _, req := range tc.Requirements {
+				if req.Title == "" && req.URL == "" {
+					continue
+				}
+
+				requirements = append(requirements, fmt.Sprintf("[%s](%s)", req.Title, req.URL))
 			}
 
 			var links []string
@@ -317,7 +328,7 @@ func (q *QASphereCSV) getCSVRows() ([][]string, error) {
 
 			row := make([]string, 0, numCols)
 			row = append(row, f, string(tc.Type), tc.Title, tc.LegacyID, strconv.FormatBool(tc.Draft),
-				string(tc.Priority), strings.Join(tc.Tags, ","), requirement,
+				string(tc.Priority), strings.Join(tc.Tags, ","), strings.Join(requirements, ","),
 				strings.Join(links, ","), files, tc.Preconditions, parameterValues,
 				strings.Join(tc.FilledTCaseTitleSuffixParams, ","))
 
