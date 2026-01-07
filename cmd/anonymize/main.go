@@ -157,7 +157,7 @@ func main() {
 		panic("no -f flag provided")
 	}
 
-	f, err := os.OpenFile(*filename, os.O_RDONLY, 0644)
+	f, err := os.OpenFile(*filename, os.O_RDONLY, 0o644)
 	if err != nil {
 		panic(err)
 	}
