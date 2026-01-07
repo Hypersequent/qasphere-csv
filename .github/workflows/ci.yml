@@ -18,27 +18,24 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 2
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '^1.23.4'
-      - run: go version
+          go-version-file: go.mod
 
       - name: Install gofumpt
         run: go install mvdan.cc/gofumpt@latest
 
-      - name: Add gofumpt to PATH
+      - name: Add go bin to PATH
         run: echo "$GOPATH/bin" >> $GITHUB_PATH
 
       - name: Run gofumpt
         run: diff <(echo -n) <(gofumpt -d .)
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v9
         with:
-          version: v1.62.2
+          version: v2.7
           args: --verbose --timeout=3m
 
       - name: Test
