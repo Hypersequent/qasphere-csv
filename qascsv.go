@@ -3,6 +3,7 @@
 package qascsv
 
 import (
+	"bytes"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
@@ -17,11 +18,27 @@ import (
 	"github.com/pkg/errors"
 )
 
+// jsonMarshal marshals v to JSON without escaping HTML characters.
+func jsonMarshal(v any) ([]byte, error) {
+	buf := &bytes.Buffer{}
+	enc := json.NewEncoder(buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
+		return nil, err
+	}
+	// Remove trailing newline added by Encode
+	b := buf.Bytes()
+	if len(b) > 0 && b[len(b)-1] == '\n' {
+		b = b[:len(b)-1]
+	}
+	return b, nil
+}
+
 // staticColumns will always be present in the CSV file
 // but there can be additional columns for steps and custom fields.
 var staticColumns = []string{
 	"Folder", "Type", "Name", "Legacy ID", "Draft", "Priority", "Tags", "Requirements",
-	"Links", "Files", "Preconditions", "Parameter Values", "Template Suffix Params",
+	"Links", "Files", "Preconditions", "Steps", "Parameter Values", "Template Suffix Params",
 }
 
 // Priority represents the priority of a test case in QA Sphere.
@@ -70,9 +87,12 @@ type File struct {
 // Step represents a single action to perform in a test case.
 type Step struct {
 	// The action to perform. Markdown is supported. (optional)
-	Action string
+	Action string `json:"description,omitempty"`
 	// The expected result of the action. Markdown is supported. (optional)
-	Expected string
+	Expected string `json:"expected,omitempty"`
+
+	SharedStepID string `json:"sharedStepId,omitempty"`
+	SubSteps     []Step `json:"subSteps,omitempty"`
 }
 
 // ParameterValue represents parameter values that you provide for template test cases.
@@ -235,8 +255,19 @@ func (q *QASphereCSV) AddTestCases(tcs []TestCase) error {
 	return nil
 }
 
+func (q *QASphereCSV) AddFolder(folder string) error {
+	if folder == "" {
+		return errors.New("folder cannot be empty")
+	}
+	if _, ok := q.folderTCaseMap[folder]; ok {
+		return errors.Errorf("folder %q already exists", folder)
+	}
+	q.folderTCaseMap[folder] = nil
+	return nil
+}
+
 func (q *QASphereCSV) GenerateCSV() (string, error) {
-	w := &strings.Builder{}
+	w := bytes.NewBuffer(make([]byte, 0, 1024))
 	if err := q.writeCSV(w); err != nil {
 		return "", errors.Wrap(err, "generate csv")
 	}
@@ -277,7 +308,11 @@ func (q *QASphereCSV) validateTestCase(tc TestCase) error {
 }
 
 func (q *QASphereCSV) addTCase(tc TestCase) {
-	folderPath := strings.Join(tc.Folder, "/")
+	escapedFolder := make([]string, len(tc.Folder))
+	for i, folder := range tc.Folder {
+		escapedFolder[i] = strings.ReplaceAll(folder, "/", `\/`)
+	}
+	folderPath := strings.Join(escapedFolder, "/")
 	q.folderTCaseMap[folderPath] = append(q.folderTCaseMap[folderPath], tc)
 
 	q.numTCases++
@@ -286,40 +321,48 @@ func (q *QASphereCSV) addTCase(tc TestCase) {
 	}
 }
 
-func (q *QASphereCSV) getFolders() []string {
-	var folders []string
+func (q *QASphereCSV) writeCSV(w io.Writer) error {
+	csvw := csv.NewWriter(w)
+
+	row := make([]string, 0, len(staticColumns)+len(q.customFields))
+	row = append(row, staticColumns...)
+
+	customFieldsMap := make(map[string]int, len(q.customFields))
+	for i, cf := range q.customFields {
+		customFieldHeader := fmt.Sprintf("custom_field_%s_%s", cf.Type, cf.SystemName)
+		row = append(row, customFieldHeader)
+		customFieldsMap[cf.SystemName] = i
+	}
+
+	if err := csvw.Write(row); err != nil {
+		return errors.Wrap(err, "could not write header row")
+	}
+
+	folders := make([]string, 0, len(q.folderTCaseMap))
 	for folder := range q.folderTCaseMap {
 		folders = append(folders, folder)
 	}
 	slices.Sort(folders)
-	return folders
-}
 
-func (q *QASphereCSV) getCSVRows() ([][]string, error) {
-	rows := make([][]string, 0, q.numTCases+1)
-	numCols := len(staticColumns) + 2*q.maxSteps + len(q.customFields)
+	for _, folder := range folders {
+		testCases := q.folderTCaseMap[folder]
 
-	rows = append(rows, append(make([]string, 0, numCols), staticColumns...))
-	for i := 0; i < q.maxSteps; i++ {
-		rows[0] = append(rows[0], fmt.Sprintf("Step %d", i+1), fmt.Sprintf("Expected %d", i+1))
-	}
+		// Empty folder (no test cases)
+		if len(testCases) == 0 {
+			clear(row)
+			row[0] = folder
+			if err := csvw.Write(row); err != nil {
+				return errors.Wrap(err, "could not write row")
+			}
+			continue
+		}
 
-	customFieldsMap := make(map[string]int)
-	for i, cf := range q.customFields {
-		customFieldHeader := fmt.Sprintf("custom_field_%s_%s", cf.Type, cf.SystemName)
-		rows[0] = append(rows[0], customFieldHeader)
-		customFieldsMap[cf.SystemName] = i
-	}
-
-	folders := q.getFolders()
-	for _, f := range folders {
-		for _, tc := range q.folderTCaseMap[f] {
+		for _, tc := range testCases {
 			var requirements []string
 			for _, req := range tc.Requirements {
 				if req.Title == "" && req.URL == "" {
 					continue
 				}
-
 				requirements = append(requirements, fmt.Sprintf("[%s](%s)", req.Title, req.URL))
 			}
 
@@ -330,59 +373,56 @@ func (q *QASphereCSV) getCSVRows() ([][]string, error) {
 
 			var files string
 			if len(tc.Files) > 0 {
-				filesb, err := json.Marshal(tc.Files)
+				filesb, err := jsonMarshal(tc.Files)
 				if err != nil {
-					return nil, errors.Wrap(err, "json marshal files")
+					return errors.Wrap(err, "json marshal files")
 				}
 				files = string(filesb)
 			}
 
+			var steps string
+			if len(tc.Steps) > 0 {
+				stepsb, err := jsonMarshal(tc.Steps)
+				if err != nil {
+					return errors.Wrap(err, "json marshal steps")
+				}
+				steps = string(stepsb)
+			}
+
 			var parameterValues string
 			if len(tc.ParameterValues) > 0 {
-				parameterValuesb, err := json.Marshal(tc.ParameterValues)
+				parameterValuesb, err := jsonMarshal(tc.ParameterValues)
 				if err != nil {
-					return nil, errors.Wrap(err, "json marshal parameter values")
+					return errors.Wrap(err, "json marshal parameter values")
 				}
 				parameterValues = string(parameterValuesb)
 			}
 
-			row := make([]string, 0, numCols)
-			row = append(row, f, string(tc.Type), tc.Title, tc.LegacyID, strconv.FormatBool(tc.Draft),
+			row = append(row[:0],
+				strings.Join(tc.Folder, "/"), string(tc.Type), tc.Title, tc.LegacyID, strconv.FormatBool(tc.Draft),
 				string(tc.Priority), strings.Join(tc.Tags, ","), strings.Join(requirements, ","),
-				strings.Join(links, ","), files, tc.Preconditions, parameterValues,
+				strings.Join(links, ","), files, tc.Preconditions, steps, parameterValues,
 				strings.Join(tc.FilledTCaseTitleSuffixParams, ","))
-
-			numSteps := len(tc.Steps)
-			for i := 0; i < q.maxSteps; i++ {
-				if i < numSteps {
-					row = append(row, tc.Steps[i].Action, tc.Steps[i].Expected)
-				} else {
-					row = append(row, "", "")
-				}
-			}
 
 			customFieldCols := make([]string, len(customFieldsMap))
 			for systemName, cfValue := range tc.CustomFields {
-				cfValueJSON, err := json.Marshal(cfValue)
+				cfValueJSON, err := jsonMarshal(cfValue)
 				if err != nil {
-					return nil, errors.Wrap(err, "json marshal custom field value")
+					return errors.Wrap(err, "json marshal custom field value")
 				}
-
 				customFieldCols[customFieldsMap[systemName]] = string(cfValueJSON)
 			}
 			row = append(row, customFieldCols...)
 
-			rows = append(rows, row)
+			if err := csvw.Write(row); err != nil {
+				return errors.Wrap(err, "could not write row")
+			}
 		}
 	}
 
-	return rows, nil
-}
-
-func (q *QASphereCSV) writeCSV(w io.Writer) error {
-	rows, err := q.getCSVRows()
-	if err != nil {
-		return errors.Wrap(err, "get csv rows")
+	csvw.Flush()
+	if err := csvw.Error(); err != nil {
+		return errors.Wrap(err, "csv writer error")
 	}
-	return csv.NewWriter(w).WriteAll(rows)
+	return nil
 }

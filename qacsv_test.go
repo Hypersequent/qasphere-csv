@@ -125,11 +125,11 @@ var successTestCases = []TestCase{
 	},
 }
 
-const successTestCasesCSV = `Folder,Type,Name,Legacy ID,Draft,Priority,Tags,Requirements,Links,Files,Preconditions,Parameter Values,Template Suffix Params,Step 1,Expected 1,Step 2,Expected 2
-root,standalone,tc-with-minimal-fields,,false,high,,,,,,,,,,,
-root,standalone,tc-with-partial-fields,,true,low,,[](http://req1),,"[{""fileName"":""file-1.csv"",""id"":""file-id"",""url"":""http://file1"",""mimeType"":""text/csv"",""size"":10},{""fileName"":""file-1.csv"",""id"":""file-id"",""url"":""http://file1"",""mimeType"":""text/csv"",""size"":10}]",,,,action-1,,,expected-2
-root/child,standalone,tc-with-all-fields,legacy-id,false,high,"tag1,tag2",[req1](http://req1),"[link-1](http://link1),[link-2](http://link2)","[{""fileName"":""file-1.csv"",""id"":""file-id"",""url"":""http://file1"",""mimeType"":""text/csv"",""size"":10},{""fileName"":""file-1.csv"",""id"":""file-id"",""url"":""http://file1"",""mimeType"":""text/csv"",""size"":10}]",preconditions,,,action-1,expected-1,action-2,expected-2
-root/child,standalone,"tc-with-special-chars.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;",legacy-id,false,high,"tag1.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;","[req.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;]()","[link-1.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;](http://link1)","[{""fileName"":""file-1.csv"",""id"":""file-id"",""url"":""http://file1"",""mimeType"":""text/csv"",""size"":10}]","preconditions.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;",,,"action.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;","expected.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;",,
+const successTestCasesCSV = `Folder,Type,Name,Legacy ID,Draft,Priority,Tags,Requirements,Links,Files,Preconditions,Steps,Parameter Values,Template Suffix Params
+root,standalone,tc-with-minimal-fields,,false,high,,,,,,,,
+root,standalone,tc-with-partial-fields,,true,low,,[](http://req1),,"[{""fileName"":""file-1.csv"",""id"":""file-id"",""url"":""http://file1"",""mimeType"":""text/csv"",""size"":10},{""fileName"":""file-1.csv"",""id"":""file-id"",""url"":""http://file1"",""mimeType"":""text/csv"",""size"":10}]",,"[{""description"":""action-1""},{""expected"":""expected-2""}]",,
+root/child,standalone,tc-with-all-fields,legacy-id,false,high,"tag1,tag2",[req1](http://req1),"[link-1](http://link1),[link-2](http://link2)","[{""fileName"":""file-1.csv"",""id"":""file-id"",""url"":""http://file1"",""mimeType"":""text/csv"",""size"":10},{""fileName"":""file-1.csv"",""id"":""file-id"",""url"":""http://file1"",""mimeType"":""text/csv"",""size"":10}]",preconditions,"[{""description"":""action-1"",""expected"":""expected-1""},{""description"":""action-2"",""expected"":""expected-2""}]",,
+root/child,standalone,"tc-with-special-chars.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;",legacy-id,false,high,"tag1.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;","[req.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;]()","[link-1.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;](http://link1)","[{""fileName"":""file-1.csv"",""id"":""file-id"",""url"":""http://file1"",""mimeType"":""text/csv"",""size"":10}]","preconditions.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;","[{""description"":""action.,<>/@$%\""\""''*&()[]{}+-[BACKTICK]!~;"",""expected"":""expected.,<>/@$%\""\""''*&()[]{}+-[BACKTICK]!~;""}]",,
 `
 
 var failureTestCases = []TestCase{
@@ -353,12 +353,12 @@ var customFieldSuccessTestCases = []TestCase{
 	},
 }
 
-const customFieldSuccessTestCasesCSV = `Folder,Type,Name,Legacy ID,Draft,Priority,Tags,Requirements,Links,Files,Preconditions,Parameter Values,Template Suffix Params,Step 1,Expected 1,custom_field_dropdown_test_env,custom_field_dropdown_automation,custom_field_text_notes
-custom-fields,standalone,tc-with-single-custom-field,,false,medium,,,,,,,,,,"{""value"":""staging"",""isDefault"":false}",,
-custom-fields,standalone,tc-with-multiple-custom-fields,,false,high,"regression,smoke",,,,,,,Execute test,Test passes,"{""value"":""production"",""isDefault"":false}","{""value"":""Automated"",""isDefault"":false}","{""value"":""This is a test note with special chars: !@#$%^\u0026*()"",""isDefault"":false}"
-custom-fields,standalone,tc-with-empty-custom-field-value,,false,low,,,,,,,,,,,,"{""value"":"""",""isDefault"":false}"
-custom-fields,standalone,tc-with-default-custom-field,,false,medium,,,,,,,,,,,"{""value"":"""",""isDefault"":false}",
-custom-fields/comprehensive,standalone,tc-with-all-fields-and-custom-fields,CF-001,false,high,"custom,comprehensive",[CF Requirements](http://cf-req),[CF Link](http://cf-link),"[{""fileName"":""cf-test.txt"",""id"":""cf-file-id"",""url"":""http://cf-file"",""mimeType"":""text/plain"",""size"":100}]",Custom field test setup,,,Step 1,Result 1,"{""value"":""development"",""isDefault"":false}","{""value"":""In Progress"",""isDefault"":false}",
+const customFieldSuccessTestCasesCSV = `Folder,Type,Name,Legacy ID,Draft,Priority,Tags,Requirements,Links,Files,Preconditions,Steps,Parameter Values,Template Suffix Params,custom_field_dropdown_test_env,custom_field_dropdown_automation,custom_field_text_notes
+custom-fields,standalone,tc-with-single-custom-field,,false,medium,,,,,,,,,"{""value"":""staging"",""isDefault"":false}",,
+custom-fields,standalone,tc-with-multiple-custom-fields,,false,high,"regression,smoke",,,,,"[{""description"":""Execute test"",""expected"":""Test passes""}]",,,"{""value"":""production"",""isDefault"":false}","{""value"":""Automated"",""isDefault"":false}","{""value"":""This is a test note with special chars: !@#$%^&*()"",""isDefault"":false}"
+custom-fields,standalone,tc-with-empty-custom-field-value,,false,low,,,,,,,,,,,"{""value"":"""",""isDefault"":false}"
+custom-fields,standalone,tc-with-default-custom-field,,false,medium,,,,,,,,,,"{""value"":"""",""isDefault"":false}",
+custom-fields/comprehensive,standalone,tc-with-all-fields-and-custom-fields,CF-001,false,high,"custom,comprehensive",[CF Requirements](http://cf-req),[CF Link](http://cf-link),"[{""fileName"":""cf-test.txt"",""id"":""cf-file-id"",""url"":""http://cf-file"",""mimeType"":""text/plain"",""size"":100}]",Custom field test setup,"[{""description"":""Step 1"",""expected"":""Result 1""}]",,,"{""value"":""development"",""isDefault"":false}","{""value"":""In Progress"",""isDefault"":false}",
 `
 
 var customFieldFailureTestCases = []TestCase{
