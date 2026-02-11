@@ -125,11 +125,11 @@ var successTestCases = []TestCase{
 	},
 }
 
-const successTestCasesCSV = `Folder,Type,Name,Legacy ID,Draft,Priority,Tags,Requirements,Links,Files,Preconditions,Parameter Values,Template Suffix Params,Step 1,Expected 1,Step 2,Expected 2
-root,standalone,tc-with-minimal-fields,,false,high,,,,,,,,,,,
-root,standalone,tc-with-partial-fields,,true,low,,[](http://req1),,"[{""fileName"":""file-1.csv"",""id"":""file-id"",""url"":""http://file1"",""mimeType"":""text/csv"",""size"":10},{""fileName"":""file-1.csv"",""id"":""file-id"",""url"":""http://file1"",""mimeType"":""text/csv"",""size"":10}]",,,,action-1,,,expected-2
-root/child,standalone,tc-with-all-fields,legacy-id,false,high,"tag1,tag2",[req1](http://req1),"[link-1](http://link1),[link-2](http://link2)","[{""fileName"":""file-1.csv"",""id"":""file-id"",""url"":""http://file1"",""mimeType"":""text/csv"",""size"":10},{""fileName"":""file-1.csv"",""id"":""file-id"",""url"":""http://file1"",""mimeType"":""text/csv"",""size"":10}]",preconditions,,,action-1,expected-1,action-2,expected-2
-root/child,standalone,"tc-with-special-chars.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;",legacy-id,false,high,"tag1.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;","[req.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;]()","[link-1.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;](http://link1)","[{""fileName"":""file-1.csv"",""id"":""file-id"",""url"":""http://file1"",""mimeType"":""text/csv"",""size"":10}]","preconditions.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;",,,"action.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;","expected.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;",,
+const successTestCasesCSV = `Folder,Folder Comment,Type,Name,Legacy ID,Draft,Priority,Tags,Requirements,Links,Files,Preconditions,Parameter Values,Template Suffix Params,Step 1,Expected 1,Step 2,Expected 2
+root/child,,standalone,tc-with-all-fields,legacy-id,false,high,"tag1,tag2",[req1](http://req1),"[link-1](http://link1),[link-2](http://link2)","[{""fileName"":""file-1.csv"",""id"":""file-id"",""url"":""http://file1"",""mimeType"":""text/csv"",""size"":10},{""fileName"":""file-1.csv"",""id"":""file-id"",""url"":""http://file1"",""mimeType"":""text/csv"",""size"":10}]",preconditions,,,action-1,expected-1,action-2,expected-2
+root/child,,standalone,"tc-with-special-chars.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;",legacy-id,false,high,"tag1.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;","[req.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;]()","[link-1.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;](http://link1)","[{""fileName"":""file-1.csv"",""id"":""file-id"",""url"":""http://file1"",""mimeType"":""text/csv"",""size"":10}]","preconditions.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;",,,"action.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;","expected.,<>/@$%""""''*&()[]{}+-[BACKTICK]!~;",,
+root,,standalone,tc-with-minimal-fields,,false,high,,,,,,,,,,,
+root,,standalone,tc-with-partial-fields,,true,low,,[](http://req1),,"[{""fileName"":""file-1.csv"",""id"":""file-id"",""url"":""http://file1"",""mimeType"":""text/csv"",""size"":10},{""fileName"":""file-1.csv"",""id"":""file-id"",""url"":""http://file1"",""mimeType"":""text/csv"",""size"":10}]",,,,action-1,,,expected-2
 `
 
 var failureTestCases = []TestCase{
@@ -146,12 +146,12 @@ var failureTestCases = []TestCase{
 		Folder:   []string{},
 		Priority: "high",
 	}, {
-		Title:    "folder with empty title",
-		Folder:   []string{"root/child"},
+		Title:    "folder with empty segment",
+		Folder:   []string{"root", ""},
 		Priority: "high",
 	}, {
-		Title:    "folder title with slash",
-		Folder:   []string{"root/child"},
+		Title:    "folder segment ending with backslash",
+		Folder:   []string{"root\\"},
 		Priority: "high",
 	}, {
 		Title:    "wrong priority",
@@ -353,12 +353,12 @@ var customFieldSuccessTestCases = []TestCase{
 	},
 }
 
-const customFieldSuccessTestCasesCSV = `Folder,Type,Name,Legacy ID,Draft,Priority,Tags,Requirements,Links,Files,Preconditions,Parameter Values,Template Suffix Params,Step 1,Expected 1,custom_field_dropdown_test_env,custom_field_dropdown_automation,custom_field_text_notes
-custom-fields,standalone,tc-with-single-custom-field,,false,medium,,,,,,,,,,"{""value"":""staging"",""isDefault"":false}",,
-custom-fields,standalone,tc-with-multiple-custom-fields,,false,high,"regression,smoke",,,,,,,Execute test,Test passes,"{""value"":""production"",""isDefault"":false}","{""value"":""Automated"",""isDefault"":false}","{""value"":""This is a test note with special chars: !@#$%^\u0026*()"",""isDefault"":false}"
-custom-fields,standalone,tc-with-empty-custom-field-value,,false,low,,,,,,,,,,,,"{""value"":"""",""isDefault"":false}"
-custom-fields,standalone,tc-with-default-custom-field,,false,medium,,,,,,,,,,,"{""value"":"""",""isDefault"":false}",
-custom-fields/comprehensive,standalone,tc-with-all-fields-and-custom-fields,CF-001,false,high,"custom,comprehensive",[CF Requirements](http://cf-req),[CF Link](http://cf-link),"[{""fileName"":""cf-test.txt"",""id"":""cf-file-id"",""url"":""http://cf-file"",""mimeType"":""text/plain"",""size"":100}]",Custom field test setup,,,Step 1,Result 1,"{""value"":""development"",""isDefault"":false}","{""value"":""In Progress"",""isDefault"":false}",
+const customFieldSuccessTestCasesCSV = `Folder,Folder Comment,Type,Name,Legacy ID,Draft,Priority,Tags,Requirements,Links,Files,Preconditions,Parameter Values,Template Suffix Params,Step 1,Expected 1,custom_field_dropdown_test_env,custom_field_dropdown_automation,custom_field_text_notes
+custom-fields,,standalone,tc-with-single-custom-field,,false,medium,,,,,,,,,,"{""value"":""staging"",""isDefault"":false}",,
+custom-fields,,standalone,tc-with-multiple-custom-fields,,false,high,"regression,smoke",,,,,,,Execute test,Test passes,"{""value"":""production"",""isDefault"":false}","{""value"":""Automated"",""isDefault"":false}","{""value"":""This is a test note with special chars: !@#$%^&*()"",""isDefault"":false}"
+custom-fields,,standalone,tc-with-empty-custom-field-value,,false,low,,,,,,,,,,,,"{""value"":"""",""isDefault"":false}"
+custom-fields,,standalone,tc-with-default-custom-field,,false,medium,,,,,,,,,,,"{""value"":"""",""isDefault"":false}",
+custom-fields/comprehensive,,standalone,tc-with-all-fields-and-custom-fields,CF-001,false,high,"custom,comprehensive",[CF Requirements](http://cf-req),[CF Link](http://cf-link),"[{""fileName"":""cf-test.txt"",""id"":""cf-file-id"",""url"":""http://cf-file"",""mimeType"":""text/plain"",""size"":100}]",Custom field test setup,,,Step 1,Result 1,"{""value"":""development"",""isDefault"":false}","{""value"":""In Progress"",""isDefault"":false}",
 `
 
 var customFieldFailureTestCases = []TestCase{
@@ -455,4 +455,148 @@ func TestCustomFieldFailureTestCases(t *testing.T) {
 			require.NotNil(t, err)
 		})
 	}
+}
+
+func TestFolderSlashEscaping(t *testing.T) {
+	qasCSV := NewQASphereCSV()
+
+	err := qasCSV.AddTestCase(TestCase{
+		Title:    "tc-in-slash-folder",
+		Folder:   []string{"root/parent", "child/leaf"},
+		Priority: "high",
+	})
+	require.NoError(t, err)
+
+	csv, err := qasCSV.GenerateCSV()
+	require.NoError(t, err)
+
+	expected := `Folder,Folder Comment,Type,Name,Legacy ID,Draft,Priority,Tags,Requirements,Links,Files,Preconditions,Parameter Values,Template Suffix Params
+root\/parent/child\/leaf,,standalone,tc-in-slash-folder,,false,high,,,,,,,
+`
+	require.Equal(t, expected, csv)
+}
+
+func TestFolderSegmentEndingWithBackslash(t *testing.T) {
+	qasCSV := NewQASphereCSV()
+
+	err := qasCSV.AddTestCase(TestCase{
+		Title:    "tc-bad-backslash",
+		Folder:   []string{"root\\"},
+		Priority: "high",
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "must not end with '\\'")
+}
+
+func TestAddFolderEmpty(t *testing.T) {
+	qasCSV := NewQASphereCSV()
+
+	err := qasCSV.AddFolder([]string{"empty-folder"}, "")
+	require.NoError(t, err)
+
+	csv, err := qasCSV.GenerateCSV()
+	require.NoError(t, err)
+
+	expected := `Folder,Folder Comment,Type,Name,Legacy ID,Draft,Priority,Tags,Requirements,Links,Files,Preconditions,Parameter Values,Template Suffix Params
+empty-folder,,,,,,,,,,,,,
+`
+	require.Equal(t, expected, csv)
+}
+
+func TestAddFolderWithComment(t *testing.T) {
+	qasCSV := NewQASphereCSV()
+
+	err := qasCSV.AddFolder([]string{"commented-folder"}, "This is a folder comment")
+	require.NoError(t, err)
+
+	csv, err := qasCSV.GenerateCSV()
+	require.NoError(t, err)
+
+	expected := `Folder,Folder Comment,Type,Name,Legacy ID,Draft,Priority,Tags,Requirements,Links,Files,Preconditions,Parameter Values,Template Suffix Params
+commented-folder,This is a folder comment,,,,,,,,,,,,
+`
+	require.Equal(t, expected, csv)
+}
+
+func TestAddFolderWithCommentAndTestCases(t *testing.T) {
+	qasCSV := NewQASphereCSV()
+
+	err := qasCSV.AddFolder([]string{"my-folder"}, "Folder description")
+	require.NoError(t, err)
+
+	err = qasCSV.AddTestCase(TestCase{
+		Title:    "tc-in-commented-folder",
+		Folder:   []string{"my-folder"},
+		Priority: "high",
+	})
+	require.NoError(t, err)
+
+	csv, err := qasCSV.GenerateCSV()
+	require.NoError(t, err)
+
+	expected := `Folder,Folder Comment,Type,Name,Legacy ID,Draft,Priority,Tags,Requirements,Links,Files,Preconditions,Parameter Values,Template Suffix Params
+my-folder,Folder description,,,,,,,,,,,,
+my-folder,,standalone,tc-in-commented-folder,,false,high,,,,,,,
+`
+	require.Equal(t, expected, csv)
+}
+
+func TestAddFolderValidation(t *testing.T) {
+	t.Run("empty folder path", func(t *testing.T) {
+		qasCSV := NewQASphereCSV()
+		err := qasCSV.AddFolder([]string{}, "comment")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "folder path must not be empty")
+	})
+
+	t.Run("empty folder segment", func(t *testing.T) {
+		qasCSV := NewQASphereCSV()
+		err := qasCSV.AddFolder([]string{"root", ""}, "comment")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "folder segment must not be empty")
+	})
+
+	t.Run("folder segment ending with backslash", func(t *testing.T) {
+		qasCSV := NewQASphereCSV()
+		err := qasCSV.AddFolder([]string{"root\\"}, "comment")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "must not end with '\\'")
+	})
+
+	t.Run("duplicate folder", func(t *testing.T) {
+		qasCSV := NewQASphereCSV()
+		err := qasCSV.AddFolder([]string{"root"}, "comment")
+		require.NoError(t, err)
+		err = qasCSV.AddFolder([]string{"root"}, "another comment")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "already exists")
+	})
+
+	t.Run("folder already has test cases", func(t *testing.T) {
+		qasCSV := NewQASphereCSV()
+		err := qasCSV.AddTestCase(TestCase{
+			Title:    "tc",
+			Folder:   []string{"root"},
+			Priority: "high",
+		})
+		require.NoError(t, err)
+		err = qasCSV.AddFolder([]string{"root"}, "comment")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "already exists")
+	})
+}
+
+func TestAddFolderWithSlashInName(t *testing.T) {
+	qasCSV := NewQASphereCSV()
+
+	err := qasCSV.AddFolder([]string{"folder/with/slashes", "child"}, "slash comment")
+	require.NoError(t, err)
+
+	csv, err := qasCSV.GenerateCSV()
+	require.NoError(t, err)
+
+	expected := `Folder,Folder Comment,Type,Name,Legacy ID,Draft,Priority,Tags,Requirements,Links,Files,Preconditions,Parameter Values,Template Suffix Params
+folder\/with\/slashes/child,slash comment,,,,,,,,,,,,
+`
+	require.Equal(t, expected, csv)
 }
