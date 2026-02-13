@@ -121,7 +121,7 @@ type TestCase struct {
 	// for reference. (optional)
 	LegacyID string `validate:"max=255"`
 	// The complete folder path to the test case. (required)
-	Folder []string `validate:"min=1,dive,required,max=255"`
+	FolderPath []string `validate:"min=1,dive,required,max=255"`
 	// The priority of the test case. (required)
 	Priority Priority `validate:"required,oneof=low medium high"`
 	// The tags to assign to the test cases. This can be used to group,
@@ -307,7 +307,7 @@ func escapeFolderPath(segments []string) string {
 }
 
 func (q *QASphereCSV) validateTestCase(tc TestCase) error {
-	if err := validateFolderSegments(tc.Folder); err != nil {
+	if err := validateFolderSegments(tc.FolderPath); err != nil {
 		return err
 	}
 
@@ -330,7 +330,7 @@ func (q *QASphereCSV) validateTestCase(tc TestCase) error {
 }
 
 func (q *QASphereCSV) addTCase(tc TestCase) {
-	folderPath := escapeFolderPath(tc.Folder)
+	folderPath := escapeFolderPath(tc.FolderPath)
 	if _, exists := q.folderTCaseMap[folderPath]; !exists {
 		q.folderOrder = append(q.folderOrder, folderPath)
 	}

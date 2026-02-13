@@ -13,7 +13,7 @@ var successTestCases = []TestCase{
 	{
 		Title:         "tc-with-all-fields",
 		LegacyID:      "legacy-id",
-		Folder:        []string{"root", "child"},
+		FolderPath:    []string{"root", "child"},
 		Priority:      "high",
 		Tags:          []string{"tag1", "tag2"},
 		Preconditions: "preconditions",
@@ -56,13 +56,13 @@ var successTestCases = []TestCase{
 	},
 	{
 		Title:    "tc-with-minimal-fields",
-		Folder:   []string{"root"},
+		FolderPath: []string{"root"},
 		Priority: "high",
 	},
 	{
 		Title:         "tc-with-special-chars.,<>/@$%\"\"''*&()[]{}+-`!~;",
 		LegacyID:      "legacy-id",
-		Folder:        []string{"root", "child"},
+		FolderPath:    []string{"root", "child"},
 		Priority:      "high",
 		Tags:          []string{"tag1.,<>/@$%\"\"''*&()[]{}+-`!~;"},
 		Preconditions: "preconditions.,<>/@$%\"\"''*&()[]{}+-`!~;",
@@ -92,7 +92,7 @@ var successTestCases = []TestCase{
 	},
 	{
 		Title:         "tc-with-partial-fields",
-		Folder:        []string{"root"},
+		FolderPath:    []string{"root"},
 		Priority:      "low",
 		Tags:          []string{},
 		Preconditions: "",
@@ -135,71 +135,71 @@ root,,standalone,tc-with-partial-fields,,true,low,,[](http://req1),,"[{""fileNam
 var failureTestCases = []TestCase{
 	{
 		Title:    "",
-		Folder:   []string{"root"},
+		FolderPath: []string{"root"},
 		Priority: "high",
 	}, {
 		Title:    strings.Repeat("a", 512), // Exceeds 511 char limit
-		Folder:   []string{"root"},
+		FolderPath: []string{"root"},
 		Priority: "high",
 	}, {
 		Title:    "no folder",
-		Folder:   []string{},
+		FolderPath: []string{},
 		Priority: "high",
 	}, {
 		Title:    "folder with empty segment",
-		Folder:   []string{"root", ""},
+		FolderPath: []string{"root", ""},
 		Priority: "high",
 	}, {
 		Title:    "folder segment ending with backslash",
-		Folder:   []string{"root\\"},
+		FolderPath: []string{"root\\"},
 		Priority: "high",
 	}, {
 		Title:    "wrong priority",
-		Folder:   []string{"root"},
+		FolderPath: []string{"root"},
 		Priority: "very high",
 	}, {
 		Title:    "empty tag",
-		Folder:   []string{"root"},
+		FolderPath: []string{"root"},
 		Priority: "high",
 		Tags:     []string{""},
 	}, {
 		Title:    "long tag",
-		Folder:   []string{"root"},
+		FolderPath: []string{"root"},
 		Priority: "high",
 		Tags:     []string{strings.Repeat("a", 256)}, // Exceeds 255 char limit
 	}, {
 		Title:        "requirement without title and url",
-		Folder:       []string{"root"},
+		FolderPath:   []string{"root"},
 		Priority:     "high",
 		Requirements: []Requirement{{}},
 	}, {
 		Title:        "requirement with invalid url",
-		Folder:       []string{"root"},
+		FolderPath:   []string{"root"},
 		Priority:     "high",
 		Requirements: []Requirement{{URL: "ftp://req1"}},
 	}, {
 		Title:    "link without title and url",
-		Folder:   []string{"root"},
+		FolderPath: []string{"root"},
 		Priority: "high",
 		Links:    []Link{{}},
 	}, {
 		Title:    "link with no url",
-		Folder:   []string{"root"},
+		FolderPath: []string{"root"},
 		Priority: "high",
 		Links:    []Link{{Title: "link-1"}},
 	}, {
 		Title:    "link with no title",
-		Folder:   []string{"root"},
+		FolderPath: []string{"root"},
 		Priority: "high",
 		Links:    []Link{{URL: "http://link1"}},
 	}, {
 		Title:    "link with invalid url",
-		Folder:   []string{"root"},
+		FolderPath: []string{"root"},
 		Priority: "high",
 		Links:    []Link{{Title: "link-1", URL: "ftp://link1"}},
 	}, {
 		Title:    "file without name",
-		Folder:   []string{"root"},
+		FolderPath: []string{"root"},
 		Priority: "high",
 		Files: []File{
 			{
@@ -210,7 +210,7 @@ var failureTestCases = []TestCase{
 		},
 	}, {
 		Title:    "file without id and url",
-		Folder:   []string{"root"},
+		FolderPath: []string{"root"},
 		Priority: "high",
 		Files: []File{
 			{
@@ -221,7 +221,7 @@ var failureTestCases = []TestCase{
 		},
 	}, {
 		Title:    "file with invalid url",
-		Folder:   []string{"root"},
+		FolderPath: []string{"root"},
 		Priority: "high",
 		Files: []File{
 			{
@@ -253,7 +253,7 @@ var customFields = []CustomField{
 var customFieldSuccessTestCases = []TestCase{
 	{
 		Title:    "tc-with-single-custom-field",
-		Folder:   []string{"custom-fields"},
+		FolderPath: []string{"custom-fields"},
 		Priority: "medium",
 		CustomFields: map[string]CustomFieldValue{
 			"test_env": {
@@ -264,7 +264,7 @@ var customFieldSuccessTestCases = []TestCase{
 	},
 	{
 		Title:    "tc-with-multiple-custom-fields",
-		Folder:   []string{"custom-fields"},
+		FolderPath: []string{"custom-fields"},
 		Priority: "high",
 		Tags:     []string{"regression", "smoke"},
 		CustomFields: map[string]CustomFieldValue{
@@ -290,7 +290,7 @@ var customFieldSuccessTestCases = []TestCase{
 	},
 	{
 		Title:    "tc-with-empty-custom-field-value",
-		Folder:   []string{"custom-fields"},
+		FolderPath: []string{"custom-fields"},
 		Priority: "low",
 		CustomFields: map[string]CustomFieldValue{
 			"notes": {
@@ -301,7 +301,7 @@ var customFieldSuccessTestCases = []TestCase{
 	},
 	{
 		Title:    "tc-with-default-custom-field",
-		Folder:   []string{"custom-fields"},
+		FolderPath: []string{"custom-fields"},
 		Priority: "medium",
 		CustomFields: map[string]CustomFieldValue{
 			"automation": {
@@ -313,7 +313,7 @@ var customFieldSuccessTestCases = []TestCase{
 	{
 		Title:         "tc-with-all-fields-and-custom-fields",
 		LegacyID:      "CF-001",
-		Folder:        []string{"custom-fields", "comprehensive"},
+		FolderPath:    []string{"custom-fields", "comprehensive"},
 		Priority:      "high",
 		Tags:          []string{"custom", "comprehensive"},
 		Preconditions: "Custom field test setup",
@@ -364,7 +364,7 @@ custom-fields/comprehensive,,standalone,tc-with-all-fields-and-custom-fields,CF-
 var customFieldFailureTestCases = []TestCase{
 	{
 		Title:    "tc-with-undefined-custom-field",
-		Folder:   []string{"custom-fields-errors"},
+		FolderPath: []string{"custom-fields-errors"},
 		Priority: "high",
 		CustomFields: map[string]CustomFieldValue{
 			"undefined_field": {
@@ -374,7 +374,7 @@ var customFieldFailureTestCases = []TestCase{
 	},
 	{
 		Title:    "tc-with-very-long-custom-field-value",
-		Folder:   []string{"custom-fields-errors"},
+		FolderPath: []string{"custom-fields-errors"},
 		Priority: "medium",
 		CustomFields: map[string]CustomFieldValue{
 			"notes": {
@@ -462,7 +462,7 @@ func TestFolderSlashEscaping(t *testing.T) {
 
 	err := qasCSV.AddTestCase(TestCase{
 		Title:    "tc-in-slash-folder",
-		Folder:   []string{"root/parent", "child/leaf"},
+		FolderPath: []string{"root/parent", "child/leaf"},
 		Priority: "high",
 	})
 	require.NoError(t, err)
@@ -481,7 +481,7 @@ func TestFolderSegmentEndingWithBackslash(t *testing.T) {
 
 	err := qasCSV.AddTestCase(TestCase{
 		Title:    "tc-bad-backslash",
-		Folder:   []string{"root\\"},
+		FolderPath: []string{"root\\"},
 		Priority: "high",
 	})
 	require.Error(t, err)
@@ -532,7 +532,7 @@ func TestAddFolderWithCommentAndTestCases(t *testing.T) {
 
 	err = qasCSV.AddTestCase(TestCase{
 		Title:    "tc-in-commented-folder",
-		Folder:   []string{"my-folder"},
+		FolderPath: []string{"my-folder"},
 		Priority: "high",
 	})
 	require.NoError(t, err)
@@ -580,7 +580,7 @@ func TestAddFolderValidation(t *testing.T) {
 		qasCSV := NewQASphereCSV()
 		err := qasCSV.AddTestCase(TestCase{
 			Title:    "tc",
-			Folder:   []string{"root"},
+			FolderPath: []string{"root"},
 			Priority: "high",
 		})
 		require.NoError(t, err)

@@ -29,7 +29,7 @@ func generateFolderComments() error {
 	}
 	if err := q.AddTestCase(qascsv.TestCase{
 		Title:    "Test inside commented folder",
-		Folder:   []string{"Commented Folder"},
+		FolderPath: []string{"Commented Folder"},
 		Priority: qascsv.PriorityHigh,
 	}); err != nil {
 		return err
@@ -50,7 +50,7 @@ func generateFolderComments() error {
 	}
 	if err := q.AddTestCase(qascsv.TestCase{
 		Title:    "Test in parent folder",
-		Folder:   []string{"Parent"},
+		FolderPath: []string{"Parent"},
 		Priority: qascsv.PriorityMedium,
 	}); err != nil {
 		return err
@@ -83,7 +83,7 @@ func generateEmptyFolders() error {
 	}
 	if err := q.AddTestCase(qascsv.TestCase{
 		Title:    "Test in parent alongside empty children",
-		Folder:   []string{"Parent"},
+		FolderPath: []string{"Parent"},
 		Priority: qascsv.PriorityLow,
 	}); err != nil {
 		return err
@@ -107,14 +107,14 @@ func generateEscaping() error {
 
 	if err := q.AddTestCase(qascsv.TestCase{
 		Title:    "Test in folder with slash",
-		Folder:   []string{"Features/Bugs", "Login"},
+		FolderPath: []string{"Features/Bugs", "Login"},
 		Priority: qascsv.PriorityHigh,
 	}); err != nil {
 		return err
 	}
 	if err := q.AddTestCase(qascsv.TestCase{
 		Title:    "Test in folder with multiple slashes",
-		Folder:   []string{"A/B/C", "D/E"},
+		FolderPath: []string{"A/B/C", "D/E"},
 		Priority: qascsv.PriorityMedium,
 	}); err != nil {
 		return err
@@ -129,7 +129,7 @@ func generateEscaping() error {
 
 	if err := q.AddTestCase(qascsv.TestCase{
 		Title:    "Test in normal folder for comparison",
-		Folder:   []string{"Normal Folder", "Subfolder"},
+		FolderPath: []string{"Normal Folder", "Subfolder"},
 		Priority: qascsv.PriorityLow,
 	}); err != nil {
 		return err
