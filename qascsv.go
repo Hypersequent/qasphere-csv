@@ -101,6 +101,14 @@ type CustomFieldValue struct {
 	IsDefault bool   `json:"isDefault" validate:"omitempty"`
 }
 
+// Folder represents a folder to be created in QA Sphere.
+type Folder struct {
+	// The folder path segments. (required)
+	FolderPath []string `validate:"min=1,dive,required,max=255"`
+	// An optional comment for the folder.
+	Comment string
+}
+
 // TestCase represents a test case in QA Sphere.
 type TestCase struct {
 	// The title of the test case. (required)
@@ -238,31 +246,23 @@ func (q *QASphereCSV) AddTestCases(tcs []TestCase) error {
 	return nil
 }
 
-func (q *QASphereCSV) AddFolder(folder []string, comment string) error {
-	if len(folder) == 0 {
-		return errors.New("folder path must not be empty")
+func (q *QASphereCSV) AddFolder(f Folder) error {
+	if err := q.validate.Struct(f); err != nil {
+		return errors.Wrap(err, "folder validation")
 	}
-	for _, seg := range folder {
-		if seg == "" {
-			return errors.New("folder segment must not be empty")
-		}
-		if len(seg) > 255 {
-			return errors.Errorf("folder segment %q exceeds 255 character limit", seg)
-		}
-	}
-	if err := validateFolderSegments(folder); err != nil {
+	if err := validateFolderSegments(f.FolderPath); err != nil {
 		return err
 	}
 
-	folderPath := escapeFolderPath(folder)
+	folderPath := escapeFolderPath(f.FolderPath)
 	if _, exists := q.folderTCaseMap[folderPath]; exists {
 		return errors.Errorf("folder %q already exists", folderPath)
 	}
 
 	q.folderOrder = append(q.folderOrder, folderPath)
 	q.folderTCaseMap[folderPath] = nil
-	if comment != "" {
-		q.folderCommentMap[folderPath] = comment
+	if f.Comment != "" {
+		q.folderCommentMap[folderPath] = f.Comment
 	}
 	return nil
 }

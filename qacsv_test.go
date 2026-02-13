@@ -491,7 +491,7 @@ func TestFolderSegmentEndingWithBackslash(t *testing.T) {
 func TestAddFolderEmpty(t *testing.T) {
 	qasCSV := NewQASphereCSV()
 
-	err := qasCSV.AddFolder([]string{"empty-folder"}, "")
+	err := qasCSV.AddFolder(Folder{FolderPath: []string{"empty-folder"}})
 	require.NoError(t, err)
 
 	csv, err := qasCSV.GenerateCSV()
@@ -506,7 +506,10 @@ empty-folder,,,,,,,,,,,,,
 func TestAddFolderWithComment(t *testing.T) {
 	qasCSV := NewQASphereCSV()
 
-	err := qasCSV.AddFolder([]string{"commented-folder"}, "This is a folder comment")
+	err := qasCSV.AddFolder(Folder{
+		FolderPath: []string{"commented-folder"},
+		Comment:    "This is a folder comment",
+	})
 	require.NoError(t, err)
 
 	csv, err := qasCSV.GenerateCSV()
@@ -521,7 +524,10 @@ commented-folder,This is a folder comment,,,,,,,,,,,,
 func TestAddFolderWithCommentAndTestCases(t *testing.T) {
 	qasCSV := NewQASphereCSV()
 
-	err := qasCSV.AddFolder([]string{"my-folder"}, "Folder description")
+	err := qasCSV.AddFolder(Folder{
+		FolderPath: []string{"my-folder"},
+		Comment:    "Folder description",
+	})
 	require.NoError(t, err)
 
 	err = qasCSV.AddTestCase(TestCase{
@@ -544,30 +550,28 @@ my-folder,,standalone,tc-in-commented-folder,,false,high,,,,,,,
 func TestAddFolderValidation(t *testing.T) {
 	t.Run("empty folder path", func(t *testing.T) {
 		qasCSV := NewQASphereCSV()
-		err := qasCSV.AddFolder([]string{}, "comment")
+		err := qasCSV.AddFolder(Folder{Comment: "comment"})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "folder path must not be empty")
 	})
 
 	t.Run("empty folder segment", func(t *testing.T) {
 		qasCSV := NewQASphereCSV()
-		err := qasCSV.AddFolder([]string{"root", ""}, "comment")
+		err := qasCSV.AddFolder(Folder{FolderPath: []string{"root", ""}, Comment: "comment"})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "folder segment must not be empty")
 	})
 
 	t.Run("folder segment ending with backslash", func(t *testing.T) {
 		qasCSV := NewQASphereCSV()
-		err := qasCSV.AddFolder([]string{"root\\"}, "comment")
+		err := qasCSV.AddFolder(Folder{FolderPath: []string{"root\\"}, Comment: "comment"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "must not end with '\\'")
 	})
 
 	t.Run("duplicate folder", func(t *testing.T) {
 		qasCSV := NewQASphereCSV()
-		err := qasCSV.AddFolder([]string{"root"}, "comment")
+		err := qasCSV.AddFolder(Folder{FolderPath: []string{"root"}, Comment: "comment"})
 		require.NoError(t, err)
-		err = qasCSV.AddFolder([]string{"root"}, "another comment")
+		err = qasCSV.AddFolder(Folder{FolderPath: []string{"root"}, Comment: "another comment"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "already exists")
 	})
@@ -580,7 +584,7 @@ func TestAddFolderValidation(t *testing.T) {
 			Priority: "high",
 		})
 		require.NoError(t, err)
-		err = qasCSV.AddFolder([]string{"root"}, "comment")
+		err = qasCSV.AddFolder(Folder{FolderPath: []string{"root"}, Comment: "comment"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "already exists")
 	})
@@ -589,7 +593,10 @@ func TestAddFolderValidation(t *testing.T) {
 func TestAddFolderWithSlashInName(t *testing.T) {
 	qasCSV := NewQASphereCSV()
 
-	err := qasCSV.AddFolder([]string{"folder/with/slashes", "child"}, "slash comment")
+	err := qasCSV.AddFolder(Folder{
+		FolderPath: []string{"folder/with/slashes", "child"},
+		Comment:    "slash comment",
+	})
 	require.NoError(t, err)
 
 	csv, err := qasCSV.GenerateCSV()
