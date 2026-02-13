@@ -12,4 +12,7 @@ lint: linters-install
 test:
 	$(GOCMD) test -v -cover -race ./...
 
-.PHONY: test lint linters-install
+build-examples:
+	$(GOCMD) build ./examples/...
+
+.PHONY: test lint linters-install build-examples

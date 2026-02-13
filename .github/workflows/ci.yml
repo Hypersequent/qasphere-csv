@@ -41,5 +41,8 @@ jobs:
           version: v1.62.2
           args: --verbose --timeout=3m
 
+      - name: Build examples
+        run: make build-examples
+
       - name: Test
         run: make test
