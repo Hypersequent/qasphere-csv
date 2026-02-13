@@ -28,9 +28,9 @@ func generateFolderComments() error {
 		return err
 	}
 	if err := q.AddTestCase(qascsv.TestCase{
-		Title:    "Test inside commented folder",
+		Title:      "Test inside commented folder",
 		FolderPath: []string{"Commented Folder"},
-		Priority: qascsv.PriorityHigh,
+		Priority:   qascsv.PriorityHigh,
 	}); err != nil {
 		return err
 	}
@@ -49,9 +49,9 @@ func generateFolderComments() error {
 		return err
 	}
 	if err := q.AddTestCase(qascsv.TestCase{
-		Title:    "Test in parent folder",
+		Title:      "Test in parent folder",
 		FolderPath: []string{"Parent"},
-		Priority: qascsv.PriorityMedium,
+		Priority:   qascsv.PriorityMedium,
 	}); err != nil {
 		return err
 	}
@@ -82,9 +82,9 @@ func generateEmptyFolders() error {
 		return err
 	}
 	if err := q.AddTestCase(qascsv.TestCase{
-		Title:    "Test in parent alongside empty children",
+		Title:      "Test in parent alongside empty children",
 		FolderPath: []string{"Parent"},
-		Priority: qascsv.PriorityLow,
+		Priority:   qascsv.PriorityLow,
 	}); err != nil {
 		return err
 	}
@@ -106,16 +106,16 @@ func generateEscaping() error {
 	q := qascsv.NewQASphereCSV()
 
 	if err := q.AddTestCase(qascsv.TestCase{
-		Title:    "Test in folder with slash",
+		Title:      "Test in folder with slash",
 		FolderPath: []string{"Features/Bugs", "Login"},
-		Priority: qascsv.PriorityHigh,
+		Priority:   qascsv.PriorityHigh,
 	}); err != nil {
 		return err
 	}
 	if err := q.AddTestCase(qascsv.TestCase{
-		Title:    "Test in folder with multiple slashes",
+		Title:      "Test in folder with multiple slashes",
 		FolderPath: []string{"A/B/C", "D/E"},
-		Priority: qascsv.PriorityMedium,
+		Priority:   qascsv.PriorityMedium,
 	}); err != nil {
 		return err
 	}
@@ -128,9 +128,9 @@ func generateEscaping() error {
 	}
 
 	if err := q.AddTestCase(qascsv.TestCase{
-		Title:    "Test in normal folder for comparison",
+		Title:      "Test in normal folder for comparison",
 		FolderPath: []string{"Normal Folder", "Subfolder"},
-		Priority: qascsv.PriorityLow,
+		Priority:   qascsv.PriorityLow,
 	}); err != nil {
 		return err
 	}
