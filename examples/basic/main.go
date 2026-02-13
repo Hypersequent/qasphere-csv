@@ -14,7 +14,7 @@ func main() {
 	// Add a single test case
 	if err := qasCSV.AddTestCase(qascsv.TestCase{
 		Title:         "Changing to corresponding cursor after hovering the element",
-		Folder:        []string{"Bistro Delivery", "About Us"},
+		FolderPath:    []string{"Bistro Delivery", "About Us"},
 		Priority:      "low",
 		Tags:          []string{"About Us", "Checklist", "REQ-4", "UI"},
 		Preconditions: "The \"About Us\" page is opened",
@@ -28,7 +28,7 @@ func main() {
 	// Add multiple test cases
 	if err := qasCSV.AddTestCases([]qascsv.TestCase{{
 		Title:         "Cart should be cleared after making the checkout",
-		Folder:        []string{"Bistro Delivery", "Cart", "Checkout"},
+		FolderPath:    []string{"Bistro Delivery", "Cart", "Checkout"},
 		Priority:      "medium",
 		Tags:          []string{"Cart", "checkout", "REQ-6", "Functional"},
 		Preconditions: "1. Order is placed\n2. Successful message is shown",
@@ -41,7 +41,7 @@ func main() {
 		}},
 	}, {
 		Title:         "Changing to corresponding cursor after hovering the element",
-		Folder:        []string{"Bistro Delivery", "Cart", "Checkout"},
+		FolderPath:    []string{"Bistro Delivery", "Cart", "Checkout"},
 		Priority:      "low",
 		Tags:          []string{"Checklist", "REQ-6", "UI", "checkout"},
 		Preconditions: "The \"Checkout\" page is opened",

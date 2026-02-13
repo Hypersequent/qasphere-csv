@@ -13,3 +13,6 @@
 
 # .env files
 .env
+
+# Generated CSV files
+*.csv

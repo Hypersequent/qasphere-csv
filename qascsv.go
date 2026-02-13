@@ -3,12 +3,12 @@
 package qascsv
 
 import (
+	"bytes"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -20,7 +20,7 @@ import (
 // staticColumns will always be present in the CSV file
 // but there can be additional columns for steps and custom fields.
 var staticColumns = []string{
-	"Folder", "Type", "Name", "Legacy ID", "Draft", "Priority", "Tags", "Requirements",
+	"Folder", "Folder Comment", "Type", "Name", "Legacy ID", "Draft", "Priority", "Tags", "Requirements",
 	"Links", "Files", "Preconditions", "Parameter Values", "Template Suffix Params",
 }
 
@@ -101,6 +101,14 @@ type CustomFieldValue struct {
 	IsDefault bool   `json:"isDefault" validate:"omitempty"`
 }
 
+// Folder represents a folder to be created in QA Sphere.
+type Folder struct {
+	// The folder path segments. (required)
+	FolderPath []string `validate:"min=1,dive,required,max=255"`
+	// An optional comment for the folder.
+	Comment string
+}
+
 // TestCase represents a test case in QA Sphere.
 type TestCase struct {
 	// The title of the test case. (required)
@@ -113,7 +121,7 @@ type TestCase struct {
 	// for reference. (optional)
 	LegacyID string `validate:"max=255"`
 	// The complete folder path to the test case. (required)
-	Folder []string `validate:"min=1,dive,required,max=255,excludesall=/"`
+	FolderPath []string `validate:"min=1,dive,required,max=255"`
 	// The priority of the test case. (required)
 	Priority Priority `validate:"required,oneof=low medium high"`
 	// The tags to assign to the test cases. This can be used to group,
@@ -155,9 +163,11 @@ type TestCase struct {
 // QASphereCSV provides APIs to generate CSV that can be used to import
 // test cases in a project on QA Sphere.
 type QASphereCSV struct {
-	folderTCaseMap map[string][]TestCase
-	validate       *validator.Validate
-	customFields   []CustomField
+	folderTCaseMap   map[string][]TestCase
+	folderCommentMap map[string]string
+	folderOrder      []string
+	validate         *validator.Validate
+	customFields     []CustomField
 
 	numTCases int
 	maxSteps  int
@@ -165,8 +175,9 @@ type QASphereCSV struct {
 
 func NewQASphereCSV() *QASphereCSV {
 	return &QASphereCSV{
-		folderTCaseMap: make(map[string][]TestCase),
-		validate:       validator.New(),
+		folderTCaseMap:   make(map[string][]TestCase),
+		folderCommentMap: make(map[string]string),
+		validate:         validator.New(),
 	}
 }
 
@@ -235,6 +246,27 @@ func (q *QASphereCSV) AddTestCases(tcs []TestCase) error {
 	return nil
 }
 
+func (q *QASphereCSV) AddFolder(f Folder) error {
+	if err := q.validate.Struct(f); err != nil {
+		return errors.Wrap(err, "folder validation")
+	}
+	if err := validateFolderSegments(f.FolderPath); err != nil {
+		return err
+	}
+
+	folderPath := escapeFolderPath(f.FolderPath)
+	if _, exists := q.folderTCaseMap[folderPath]; exists {
+		return errors.Errorf("folder %q already exists", folderPath)
+	}
+
+	q.folderOrder = append(q.folderOrder, folderPath)
+	q.folderTCaseMap[folderPath] = nil
+	if f.Comment != "" {
+		q.folderCommentMap[folderPath] = f.Comment
+	}
+	return nil
+}
+
 func (q *QASphereCSV) GenerateCSV() (string, error) {
 	w := &strings.Builder{}
 	if err := q.writeCSV(w); err != nil {
@@ -257,7 +289,28 @@ func (q *QASphereCSV) WriteCSVToFile(file string) error {
 	return nil
 }
 
+func validateFolderSegments(segments []string) error {
+	for _, seg := range segments {
+		if strings.HasSuffix(seg, `\`) {
+			return errors.Errorf("folder segment %q must not end with '\\'", seg)
+		}
+	}
+	return nil
+}
+
+func escapeFolderPath(segments []string) string {
+	escaped := make([]string, len(segments))
+	for i, seg := range segments {
+		escaped[i] = strings.ReplaceAll(seg, "/", `\/`)
+	}
+	return strings.Join(escaped, "/")
+}
+
 func (q *QASphereCSV) validateTestCase(tc TestCase) error {
+	if err := validateFolderSegments(tc.FolderPath); err != nil {
+		return err
+	}
+
 	if tc.CustomFields != nil {
 		for systemName := range tc.CustomFields {
 			var found bool
@@ -277,7 +330,10 @@ func (q *QASphereCSV) validateTestCase(tc TestCase) error {
 }
 
 func (q *QASphereCSV) addTCase(tc TestCase) {
-	folderPath := strings.Join(tc.Folder, "/")
+	folderPath := escapeFolderPath(tc.FolderPath)
+	if _, exists := q.folderTCaseMap[folderPath]; !exists {
+		q.folderOrder = append(q.folderOrder, folderPath)
+	}
 	q.folderTCaseMap[folderPath] = append(q.folderTCaseMap[folderPath], tc)
 
 	q.numTCases++
@@ -287,12 +343,17 @@ func (q *QASphereCSV) addTCase(tc TestCase) {
 }
 
 func (q *QASphereCSV) getFolders() []string {
-	var folders []string
-	for folder := range q.folderTCaseMap {
-		folders = append(folders, folder)
+	return q.folderOrder
+}
+
+func jsonMarshal(v any) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
+		return nil, err
 	}
-	slices.Sort(folders)
-	return folders
+	return bytes.TrimSuffix(buf.Bytes(), []byte("\n")), nil
 }
 
 func (q *QASphereCSV) getCSVRows() ([][]string, error) {
@@ -313,7 +374,18 @@ func (q *QASphereCSV) getCSVRows() ([][]string, error) {
 
 	folders := q.getFolders()
 	for _, f := range folders {
-		for _, tc := range q.folderTCaseMap[f] {
+		tcs := q.folderTCaseMap[f]
+		comment := q.folderCommentMap[f]
+
+		// Write a folder-only row if the folder is empty or has a comment
+		if len(tcs) == 0 || comment != "" {
+			row := make([]string, numCols)
+			row[0] = f
+			row[1] = comment
+			rows = append(rows, row)
+		}
+
+		for _, tc := range tcs {
 			var requirements []string
 			for _, req := range tc.Requirements {
 				if req.Title == "" && req.URL == "" {
@@ -330,7 +402,7 @@ func (q *QASphereCSV) getCSVRows() ([][]string, error) {
 
 			var files string
 			if len(tc.Files) > 0 {
-				filesb, err := json.Marshal(tc.Files)
+				filesb, err := jsonMarshal(tc.Files)
 				if err != nil {
 					return nil, errors.Wrap(err, "json marshal files")
 				}
@@ -339,7 +411,7 @@ func (q *QASphereCSV) getCSVRows() ([][]string, error) {
 
 			var parameterValues string
 			if len(tc.ParameterValues) > 0 {
-				parameterValuesb, err := json.Marshal(tc.ParameterValues)
+				parameterValuesb, err := jsonMarshal(tc.ParameterValues)
 				if err != nil {
 					return nil, errors.Wrap(err, "json marshal parameter values")
 				}
@@ -347,7 +419,7 @@ func (q *QASphereCSV) getCSVRows() ([][]string, error) {
 			}
 
 			row := make([]string, 0, numCols)
-			row = append(row, f, string(tc.Type), tc.Title, tc.LegacyID, strconv.FormatBool(tc.Draft),
+			row = append(row, f, "", string(tc.Type), tc.Title, tc.LegacyID, strconv.FormatBool(tc.Draft),
 				string(tc.Priority), strings.Join(tc.Tags, ","), strings.Join(requirements, ","),
 				strings.Join(links, ","), files, tc.Preconditions, parameterValues,
 				strings.Join(tc.FilledTCaseTitleSuffixParams, ","))
@@ -363,7 +435,7 @@ func (q *QASphereCSV) getCSVRows() ([][]string, error) {
 
 			customFieldCols := make([]string, len(customFieldsMap))
 			for systemName, cfValue := range tc.CustomFields {
-				cfValueJSON, err := json.Marshal(cfValue)
+				cfValueJSON, err := jsonMarshal(cfValue)
 				if err != nil {
 					return nil, errors.Wrap(err, "json marshal custom field value")
 				}
