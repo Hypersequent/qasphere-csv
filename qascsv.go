@@ -337,7 +337,7 @@ func (q *QASphereCSV) addTCase(tc TestCase) {
 	q.folderTCaseMap[folderPath] = append(q.folderTCaseMap[folderPath], tc)
 
 	q.numTCases++
-	if (len(tc.Steps)) > q.maxSteps {
+	if len(tc.Steps) > q.maxSteps {
 		q.maxSteps = len(tc.Steps)
 	}
 }
