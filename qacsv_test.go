@@ -409,8 +409,8 @@ func TestWriteCSVMultipleTCasesSuccess(t *testing.T) {
 	f, err := os.Open(tempFileName)
 	require.NoError(t, err)
 	defer func() {
-		f.Close()
-		os.Remove(tempFileName)
+		_ = f.Close()
+		_ = os.Remove(tempFileName)
 	}()
 
 	b, err := io.ReadAll(f)
