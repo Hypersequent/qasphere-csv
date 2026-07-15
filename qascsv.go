@@ -280,13 +280,12 @@ func (q *QASphereCSV) WriteCSVToFile(file string) error {
 	if err != nil {
 		return errors.Wrap(err, "create csv")
 	}
-	defer f.Close()
-
 	if err := q.writeCSV(f); err != nil {
+		_ = f.Close()
 		return errors.Wrap(err, "write csv")
 	}
 
-	return nil
+	return errors.Wrap(f.Close(), "close csv")
 }
 
 func validateFolderSegments(segments []string) error {
@@ -337,7 +336,7 @@ func (q *QASphereCSV) addTCase(tc TestCase) {
 	q.folderTCaseMap[folderPath] = append(q.folderTCaseMap[folderPath], tc)
 
 	q.numTCases++
-	if (len(tc.Steps)) > q.maxSteps {
+	if len(tc.Steps) > q.maxSteps {
 		q.maxSteps = len(tc.Steps)
 	}
 }
