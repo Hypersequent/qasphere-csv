@@ -1,6 +1,8 @@
 package qascsv
 
 import (
+	"encoding/csv"
+	"encoding/json"
 	"io"
 	"os"
 	"strings"
@@ -373,12 +375,12 @@ var customFieldFailureTestCases = []TestCase{
 		},
 	},
 	{
-		Title:      "tc-with-very-long-custom-field-value",
+		Title:      "tc-with-very-long-dropdown-value",
 		FolderPath: []string{"custom-fields-errors"},
 		Priority:   "medium",
 		CustomFields: map[string]CustomFieldValue{
-			"notes": {
-				Value: strings.Repeat("a", 256), // Exceeds 255 char limit
+			"test_env": {
+				Value: strings.Repeat("a", 256), // Dropdown options are limited to 255 chars
 			},
 		},
 	},
@@ -455,6 +457,64 @@ func TestCustomFieldFailureTestCases(t *testing.T) {
 			require.NotNil(t, err)
 		})
 	}
+}
+
+func TestRichtextCustomField(t *testing.T) {
+	qasCSV := NewQASphereCSV()
+	require.NoError(t, qasCSV.AddCustomField(CustomField{
+		SystemName: "description",
+		Type:       CustomFieldTypeRichtext,
+	}))
+
+	// Long multi-line HTML value, well over 255 chars, with quotes and commas
+	// to exercise CSV and JSON escaping
+	longHTML := "<p>This is a \"long\" description, with commas.</p>\n" +
+		"<pre><code>func main() {\n\tfmt.Println(\"hello\")\n}</code></pre>\n" +
+		"<p>" + strings.Repeat("Lorem ipsum dolor sit amet. ", 20) + "</p>"
+	require.Greater(t, len(longHTML), 255)
+
+	require.NoError(t, qasCSV.AddTestCase(TestCase{
+		Title:      "tc-with-richtext-description",
+		FolderPath: []string{"richtext"},
+		Priority:   "medium",
+		CustomFields: map[string]CustomFieldValue{
+			"description": {Value: longHTML},
+		},
+	}))
+
+	csvStr, err := qasCSV.GenerateCSV()
+	require.NoError(t, err)
+
+	// Parse the CSV back and verify the value round-trips
+	records, err := csv.NewReader(strings.NewReader(csvStr)).ReadAll()
+	require.NoError(t, err)
+	require.Len(t, records, 2)
+
+	header := records[0]
+	require.Equal(t, "custom_field_richtext_description", header[len(header)-1])
+
+	var cfValue CustomFieldValue
+	require.NoError(t, json.Unmarshal([]byte(records[1][len(header)-1]), &cfValue))
+	require.Equal(t, longHTML, cfValue.Value)
+}
+
+func TestLongTextCustomFieldValue(t *testing.T) {
+	qasCSV := NewQASphereCSV()
+	require.NoError(t, qasCSV.AddCustomField(CustomField{
+		SystemName: "notes",
+		Type:       CustomFieldTypeText,
+	}))
+
+	// Text custom field values have no length limit
+	err := qasCSV.AddTestCase(TestCase{
+		Title:      "tc-with-long-text-value",
+		FolderPath: []string{"root"},
+		Priority:   "low",
+		CustomFields: map[string]CustomFieldValue{
+			"notes": {Value: strings.Repeat("a", 600)},
+		},
+	})
+	require.NoError(t, err)
 }
 
 func TestFolderSlashEscaping(t *testing.T) {

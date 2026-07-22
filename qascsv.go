@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/hashicorp/go-multierror"
@@ -87,17 +88,31 @@ type ParameterValue struct {
 type CustomFieldType string
 
 const (
-	CustomFieldTypeText     CustomFieldType = "text"
+	// CustomFieldTypeText is a plain text field.
+	CustomFieldTypeText CustomFieldType = "text"
+	// CustomFieldTypeDropdown is a selection field. The value must match one
+	// of the options defined for the field in QA Sphere (option values are
+	// limited to 255 characters).
 	CustomFieldTypeDropdown CustomFieldType = "dropdown"
+	// CustomFieldTypeRichtext is a rich text field (e.g. the Description
+	// field). Unlike Preconditions and Steps, which take markdown, richtext
+	// values are HTML, e.g. "<p>…</p>" or "<pre><code>…</code></pre>".
+	// QA Sphere sanitizes the HTML on import using an allowlist of tags and
+	// attributes; disallowed markup is stripped.
+	CustomFieldTypeRichtext CustomFieldType = "richtext"
 )
 
 type CustomField struct {
 	SystemName string          `validate:"required,max=64"`
-	Type       CustomFieldType `validate:"required,oneof=text dropdown"`
+	Type       CustomFieldType `validate:"required,oneof=text dropdown richtext"`
 }
 
+// CustomFieldValue represents the value of a custom field on a test case.
+// QA Sphere does not limit the length of custom field values, but dropdown
+// values must match one of the field's options, which are limited to 255
+// characters.
 type CustomFieldValue struct {
-	Value     string `json:"value" validate:"max=255"`
+	Value     string `json:"value"`
 	IsDefault bool   `json:"isDefault" validate:"omitempty"`
 }
 
@@ -128,8 +143,9 @@ type TestCase struct {
 	// filter or organise related test cases and also helps in creating
 	// test runs. (optional)
 	Tags []string `validate:"dive,required,max=255"`
-	// The preconditions (or description) for the test case. Markdown is
-	// supported. (optional)
+	// The preconditions for the test case. Markdown is supported. (optional)
+	// For test case descriptions, use a richtext custom field instead —
+	// see CustomFieldTypeRichtext.
 	Preconditions string
 	// The sequence of (ordered) actions to be performed while executing
 	// the test case. (optional)
@@ -311,16 +327,21 @@ func (q *QASphereCSV) validateTestCase(tc TestCase) error {
 	}
 
 	if tc.CustomFields != nil {
-		for systemName := range tc.CustomFields {
-			var found bool
-			for _, cf := range q.customFields {
+		for systemName, cfValue := range tc.CustomFields {
+			var found *CustomField
+			for i, cf := range q.customFields {
 				if cf.SystemName == systemName {
-					found = true
+					found = &q.customFields[i]
 					break
 				}
 			}
-			if !found {
+			if found == nil {
 				return errors.Errorf("custom field %s is not defined in QASphereCSV.customFields", systemName)
+			}
+			// Dropdown values must match an option defined in QA Sphere,
+			// and options are limited to 255 characters.
+			if found.Type == CustomFieldTypeDropdown && utf8.RuneCountInString(cfValue.Value) > 255 {
+				return errors.Errorf("custom field %s: dropdown value must not exceed 255 characters", systemName)
 			}
 		}
 	}
