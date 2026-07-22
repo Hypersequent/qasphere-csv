@@ -51,6 +51,34 @@ Refer to the [basic example](examples/basic/main.go) for API usage.
 
 For more details, please check the [documentation](https://docs.qasphere.com/).
 
+## Custom Fields
+
+Custom fields must be declared with `AddCustomField`/`AddCustomFields` before adding test cases that use them. Three types are supported:
+
+- `text` — plain text, no length limit.
+- `dropdown` — the value must match one of the options defined for the field in QA Sphere (option values are limited to 255 characters).
+- `richtext` — rich text, no length limit. **Values are HTML** (e.g. `<p>…</p>`, `<pre><code>…</code></pre>`), unlike `Preconditions` and `Steps`, which take markdown. QA Sphere sanitizes the HTML on import using an allowlist of tags and attributes.
+
+For example, to populate QA Sphere's rich text Description field:
+
+```go
+qasCSV := qascsv.NewQASphereCSV()
+_ = qasCSV.AddCustomField(qascsv.CustomField{
+	SystemName: "description",
+	Type:       qascsv.CustomFieldTypeRichtext,
+})
+_ = qasCSV.AddTestCase(qascsv.TestCase{
+	Title:      "Login with valid credentials",
+	FolderPath: []string{"Auth"},
+	Priority:   qascsv.PriorityHigh,
+	CustomFields: map[string]qascsv.CustomFieldValue{
+		"description": {Value: "<p>Verifies the standard login flow.</p>"},
+	},
+})
+```
+
+This produces a `custom_field_richtext_description` column matching QA Sphere's CSV export format.
+
 ## Contributing
 
 We welcome contributions! If you have a feature request, encounter a problem, or have questions, please [create a new issue](https://github.com/Hypersequent/qasphere-csv/issues/new/choose). You can also contribute by opening a pull request.
