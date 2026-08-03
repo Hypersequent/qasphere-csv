@@ -43,6 +43,45 @@ import qascsv "github.com/hypersequent/qasphere-csv"
 
 Refer to the [basic example](examples/basic/main.go) for API usage.
 
+## Steps and Test Data
+
+`Step.Action` and `Step.Expected` remain the API for ordinary test steps. The library serializes all steps into QA Sphere's modern JSON `Steps` CSV column:
+
+```go
+Steps: []qascsv.Step{{
+	Action:   "Run the query",
+	Expected: "One row is returned",
+	Data: []qascsv.StepData{
+		qascsv.StepDataText{Label: "Query", Value: "SELECT 1", Format: "sql"},
+		qascsv.StepDataLink{Label: "Reference", Value: "https://example.com/spec"},
+		qascsv.StepDataFile{Label: "Fixture", Value: qascsv.File{
+			Name: "fixture.csv", ID: "uploaded-file-id", URL: "https://example.com/fixture.csv",
+			MimeType: "text/csv", Size: 128,
+		}},
+	},
+}}
+```
+
+Shared steps can reference an existing QA Sphere shared step by ID, or include a title and sub-steps so the shared step can be recreated during import. Test data belongs on sub-steps, not directly on the shared row:
+
+```go
+Steps: []qascsv.Step{{
+	SharedStepID: 42,
+}, {
+	Title: "Sign in",
+	SubSteps: []qascsv.Step{{
+		Action: "Enter the credentials",
+		Data: []qascsv.StepData{
+			qascsv.StepDataText{Label: "User", Value: "alice"},
+		},
+	}},
+}}
+```
+
+Each standalone step or shared-step sub-step accepts at most 20 data items. Labels and shared-step titles are limited to 255 Unicode characters. Text values are required and limited to 65,535 UTF-16 code units; their optional formats are limited to 32 characters. Link values must be HTTP(S) URLs no longer than 255 characters. File data uses the same validation and JSON shape as test-case files.
+
+> **Migration note:** generated CSVs now always contain one JSON `Steps` column after `Preconditions`. Earlier releases generated variable `Step N` and `Expected N` columns; consumers that inspect headers or post-process CSV output must update to the modern column.
+
 ## Importing Test Cases on QA Sphere
 
 1. Create a new Project, if not already done.

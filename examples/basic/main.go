@@ -20,6 +20,10 @@ func main() {
 		Preconditions: "The \"About Us\" page is opened",
 		Steps: []qascsv.Step{{
 			Action: "Test the display across various screen sizes (desktop, tablet, mobile) to ensure that blocks and buttons adjust appropriately to different viewport widths",
+			Data: []qascsv.StepData{
+				qascsv.StepDataText{Label: "Viewports", Value: "1440x900, 768x1024, 390x844"},
+				qascsv.StepDataLink{Label: "Design", Value: "https://example.com/about-us-design"},
+			},
 		}},
 	}); err != nil {
 		log.Fatal("failed to add single test case", err)
@@ -38,6 +42,15 @@ func main() {
 		}, {
 			Action:   "Click the \"Cart\" icon",
 			Expected: "The empty state is shown in the \"Cart\" modal",
+		}, {
+			Title: "Verify an empty cart",
+			SubSteps: []qascsv.Step{{
+				Action:   "Inspect the cart item count",
+				Expected: "The item count is zero",
+				Data: []qascsv.StepData{
+					qascsv.StepDataText{Label: "Expected count", Value: "0"},
+				},
+			}},
 		}},
 	}, {
 		Title:         "Changing to corresponding cursor after hovering the element",

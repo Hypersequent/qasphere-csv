@@ -8,9 +8,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
+	"unicode/utf16"
 	"unicode/utf8"
 
 	"github.com/go-playground/validator/v10"
@@ -18,11 +20,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-// staticColumns will always be present in the CSV file
-// but there can be additional columns for steps and custom fields.
+// staticColumns will always be present in the CSV file,
+// but there can be additional columns for custom fields.
 var staticColumns = []string{
 	"Folder", "Folder Comment", "Type", "Name", "Legacy ID", "Draft", "Priority", "Tags", "Requirements",
-	"Links", "Files", "Preconditions", "Parameter Values", "Template Suffix Params",
+	"Links", "Files", "Preconditions", "Steps", "Parameter Values", "Template Suffix Params",
 }
 
 // Priority represents the priority of a test case in QA Sphere.
@@ -74,7 +76,49 @@ type Step struct {
 	Action string
 	// The expected result of the action. Markdown is supported. (optional)
 	Expected string
+	// Data is the ordered test data associated with a standalone step or a
+	// shared step's sub-step. A step can contain at most 20 data items. (optional)
+	Data []StepData
+	// SharedStepID references an existing shared step. A positive ID marks this
+	// row as a shared step. (optional)
+	SharedStepID int
+	// Title names a shared step and can be used with SubSteps to recreate one
+	// during import. (optional)
+	Title string
+	// SubSteps contains the standalone steps embedded in a shared step. (optional)
+	SubSteps []Step
 }
+
+// StepData is a test data item attached to a standalone step or shared-step
+// sub-step. The concrete type determines the JSON discriminator.
+type StepData interface {
+	isStepData()
+}
+
+// StepDataText represents text or source-code test data.
+type StepDataText struct {
+	Label  string
+	Value  string
+	Format string
+}
+
+func (StepDataText) isStepData() {}
+
+// StepDataLink represents an HTTP(S) link used as test data.
+type StepDataLink struct {
+	Label string
+	Value string
+}
+
+func (StepDataLink) isStepData() {}
+
+// StepDataFile represents an uploaded file used as test data.
+type StepDataFile struct {
+	Label string
+	Value File
+}
+
+func (StepDataFile) isStepData() {}
 
 // ParameterValue represents parameter values that you provide for template test cases.
 // Template test cases are test cases where the body of the test case can contain some placeholders
@@ -186,7 +230,6 @@ type QASphereCSV struct {
 	customFields     []CustomField
 
 	numTCases int
-	maxSteps  int
 }
 
 func NewQASphereCSV() *QASphereCSV {
@@ -345,8 +388,145 @@ func (q *QASphereCSV) validateTestCase(tc TestCase) error {
 			}
 		}
 	}
+	if err := q.validateSteps(tc.Steps); err != nil {
+		return err
+	}
 
 	return q.validate.Struct(tc)
+}
+
+func (q *QASphereCSV) validateSteps(steps []Step) error {
+	for i, step := range steps {
+		if err := q.validateStep(step, false); err != nil {
+			return errors.Wrapf(err, "steps[%d]", i)
+		}
+	}
+	return nil
+}
+
+func (q *QASphereCSV) validateStep(step Step, subStep bool) error {
+	if step.SharedStepID < 0 {
+		return errors.New("shared step ID cannot be negative")
+	}
+
+	if subStep {
+		if step.SharedStepID != 0 || step.Title != "" || step.SubSteps != nil {
+			return errors.New("shared-step metadata is not allowed on a sub-step")
+		}
+		return q.validateStepData(step.Data)
+	}
+
+	isShared := step.SharedStepID != 0 || step.Title != ""
+	if !isShared {
+		if step.SubSteps != nil {
+			return errors.New("sub-steps are not allowed on a standalone step")
+		}
+		return q.validateStepData(step.Data)
+	}
+	if utf8.RuneCountInString(step.Title) > 255 {
+		return errors.New("shared step title must not exceed 255 characters")
+	}
+	if step.Action != "" || step.Expected != "" || len(step.Data) > 0 {
+		return errors.New("action, expected result, and data are not allowed directly on a shared step")
+	}
+	for i, child := range step.SubSteps {
+		if err := q.validateStep(child, true); err != nil {
+			return errors.Wrapf(err, "subSteps[%d]", i)
+		}
+	}
+	return nil
+}
+
+func (q *QASphereCSV) validateStepData(items []StepData) error {
+	if len(items) > 20 {
+		return errors.New("step data must not contain more than 20 items")
+	}
+	for i, item := range items {
+		if err := q.validateStepDataItem(item); err != nil {
+			return errors.Wrapf(err, "data[%d]", i)
+		}
+	}
+	return nil
+}
+
+func (q *QASphereCSV) validateStepDataItem(item StepData) error {
+	switch value := item.(type) {
+	case StepDataText:
+		return validateStepDataText(value)
+	case *StepDataText:
+		if value == nil {
+			return errors.New("step data item cannot be nil")
+		}
+		return validateStepDataText(*value)
+	case StepDataLink:
+		return validateStepDataLink(value)
+	case *StepDataLink:
+		if value == nil {
+			return errors.New("step data item cannot be nil")
+		}
+		return validateStepDataLink(*value)
+	case StepDataFile:
+		if err := validateStepDataLabel(value.Label); err != nil {
+			return err
+		}
+		return errors.Wrap(q.validate.Struct(value.Value), "file validation")
+	case *StepDataFile:
+		if value == nil {
+			return errors.New("step data item cannot be nil")
+		}
+		if err := validateStepDataLabel(value.Label); err != nil {
+			return err
+		}
+		return errors.Wrap(q.validate.Struct(value.Value), "file validation")
+	case nil:
+		return errors.New("step data item cannot be nil")
+	default:
+		return errors.Errorf("unsupported step data type %T", item)
+	}
+}
+
+func validateStepDataText(value StepDataText) error {
+	if err := validateStepDataLabel(value.Label); err != nil {
+		return err
+	}
+	if value.Value == "" {
+		return errors.New("text value is required")
+	}
+	if utf16Length(value.Value) > 65535 {
+		return errors.New("text value must not exceed 65,535 UTF-16 code units")
+	}
+	if utf8.RuneCountInString(value.Format) > 32 {
+		return errors.New("text format must not exceed 32 characters")
+	}
+	return nil
+}
+
+func validateStepDataLink(value StepDataLink) error {
+	if err := validateStepDataLabel(value.Label); err != nil {
+		return err
+	}
+	if value.Value == "" {
+		return errors.New("link value is required")
+	}
+	if utf8.RuneCountInString(value.Value) > 255 {
+		return errors.New("link value must not exceed 255 characters")
+	}
+	parsed, err := url.Parse(value.Value)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Hostname() == "" {
+		return errors.New("link value must be a valid HTTP(S) URL")
+	}
+	return nil
+}
+
+func validateStepDataLabel(label string) error {
+	if utf8.RuneCountInString(label) > 255 {
+		return errors.New("step data label must not exceed 255 characters")
+	}
+	return nil
+}
+
+func utf16Length(value string) int {
+	return len(utf16.Encode([]rune(value)))
 }
 
 func (q *QASphereCSV) addTCase(tc TestCase) {
@@ -357,9 +537,6 @@ func (q *QASphereCSV) addTCase(tc TestCase) {
 	q.folderTCaseMap[folderPath] = append(q.folderTCaseMap[folderPath], tc)
 
 	q.numTCases++
-	if len(tc.Steps) > q.maxSteps {
-		q.maxSteps = len(tc.Steps)
-	}
 }
 
 func (q *QASphereCSV) getFolders() []string {
@@ -378,12 +555,9 @@ func jsonMarshal(v any) ([]byte, error) {
 
 func (q *QASphereCSV) getCSVRows() ([][]string, error) {
 	rows := make([][]string, 0, q.numTCases+1)
-	numCols := len(staticColumns) + 2*q.maxSteps + len(q.customFields)
+	numCols := len(staticColumns) + len(q.customFields)
 
 	rows = append(rows, append(make([]string, 0, numCols), staticColumns...))
-	for i := 0; i < q.maxSteps; i++ {
-		rows[0] = append(rows[0], fmt.Sprintf("Step %d", i+1), fmt.Sprintf("Expected %d", i+1))
-	}
 
 	customFieldsMap := make(map[string]int)
 	for i, cf := range q.customFields {
@@ -438,20 +612,24 @@ func (q *QASphereCSV) getCSVRows() ([][]string, error) {
 				parameterValues = string(parameterValuesb)
 			}
 
+			var steps string
+			stepsJSON, err := marshalSteps(tc.Steps)
+			if err != nil {
+				return nil, errors.Wrap(err, "json marshal steps")
+			}
+			if len(stepsJSON) > 0 {
+				stepsb, err := jsonMarshal(stepsJSON)
+				if err != nil {
+					return nil, errors.Wrap(err, "json marshal steps")
+				}
+				steps = string(stepsb)
+			}
+
 			row := make([]string, 0, numCols)
 			row = append(row, f, "", string(tc.Type), tc.Title, tc.LegacyID, strconv.FormatBool(tc.Draft),
 				string(tc.Priority), strings.Join(tc.Tags, ","), strings.Join(requirements, ","),
-				strings.Join(links, ","), files, tc.Preconditions, parameterValues,
+				strings.Join(links, ","), files, tc.Preconditions, steps, parameterValues,
 				strings.Join(tc.FilledTCaseTitleSuffixParams, ","))
-
-			numSteps := len(tc.Steps)
-			for i := 0; i < q.maxSteps; i++ {
-				if i < numSteps {
-					row = append(row, tc.Steps[i].Action, tc.Steps[i].Expected)
-				} else {
-					row = append(row, "", "")
-				}
-			}
 
 			customFieldCols := make([]string, len(customFieldsMap))
 			for systemName, cfValue := range tc.CustomFields {
@@ -469,6 +647,108 @@ func (q *QASphereCSV) getCSVRows() ([][]string, error) {
 	}
 
 	return rows, nil
+}
+
+type stepJSON struct {
+	Description  string         `json:"description,omitempty"`
+	Expected     string         `json:"expected,omitempty"`
+	Data         []stepDataJSON `json:"data,omitempty"`
+	SharedStepID int            `json:"sharedStepId,omitempty"`
+	Title        string         `json:"title,omitempty"`
+	SubSteps     []stepJSON     `json:"subSteps,omitempty"`
+}
+
+type stepDataJSON struct {
+	Type  string `json:"type"`
+	Label string `json:"label,omitempty"`
+	Data  any    `json:"data"`
+}
+
+type stepDataTextJSON struct {
+	Value  string `json:"value"`
+	Format string `json:"format,omitempty"`
+}
+
+type stepDataValueJSON[T any] struct {
+	Value T `json:"value"`
+}
+
+func marshalSteps(steps []Step) ([]stepJSON, error) {
+	result := make([]stepJSON, 0, len(steps))
+	for _, step := range steps {
+		converted, keep, err := marshalStep(step)
+		if err != nil {
+			return nil, err
+		}
+		if keep {
+			result = append(result, converted)
+		}
+	}
+	return result, nil
+}
+
+func marshalStep(step Step) (stepJSON, bool, error) {
+	data, err := marshalStepData(step.Data)
+	if err != nil {
+		return stepJSON{}, false, err
+	}
+	subSteps, err := marshalSteps(step.SubSteps)
+	if err != nil {
+		return stepJSON{}, false, err
+	}
+	result := stepJSON{
+		Description:  step.Action,
+		Expected:     step.Expected,
+		Data:         data,
+		SharedStepID: step.SharedStepID,
+		Title:        step.Title,
+		SubSteps:     subSteps,
+	}
+	keep := result.Description != "" || result.Expected != "" || len(result.Data) > 0 ||
+		result.SharedStepID != 0 || result.Title != "" || len(result.SubSteps) > 0
+	return result, keep, nil
+}
+
+func marshalStepData(items []StepData) ([]stepDataJSON, error) {
+	result := make([]stepDataJSON, 0, len(items))
+	for _, item := range items {
+		converted, err := marshalStepDataItem(item)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, converted)
+	}
+	return result, nil
+}
+
+func marshalStepDataItem(item StepData) (stepDataJSON, error) {
+	switch value := item.(type) {
+	case StepDataText:
+		return stepDataJSON{Type: "text", Label: value.Label, Data: stepDataTextJSON{Value: value.Value, Format: value.Format}}, nil
+	case *StepDataText:
+		if value == nil {
+			return stepDataJSON{}, errors.New("step data item cannot be nil")
+		}
+		return marshalStepDataItem(*value)
+	case StepDataLink:
+		return stepDataJSON{Type: "link", Label: value.Label, Data: stepDataValueJSON[string]{Value: value.Value}}, nil
+	case *StepDataLink:
+		if value == nil {
+			return stepDataJSON{}, errors.New("step data item cannot be nil")
+		}
+		return marshalStepDataItem(*value)
+	case StepDataFile:
+		return stepDataJSON{Type: "file", Label: value.Label, Data: stepDataValueJSON[File]{Value: value.Value}}, nil
+	case *StepDataFile:
+		if value == nil {
+			return stepDataJSON{}, errors.New("step data item cannot be nil")
+		}
+		return marshalStepDataItem(*value)
+	case nil:
+		return stepDataJSON{}, errors.New("step data item cannot be nil")
+	default:
+		return stepDataJSON{}, errors.Errorf("unsupported step data type %T", item)
+	}
 }
 
 func (q *QASphereCSV) writeCSV(w io.Writer) error {
